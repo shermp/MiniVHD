@@ -46,8 +46,7 @@ if (vhd_file_is_vhd(f))
     err = vhd_check_validity(&vhdm);
     // check error status
 }
-...
-...
+// do stuff
 /* Read 8 sectors from VHD, starting at sector 2048 */
 uint8_t buff[4096]; // 8 * 512
 vhd_read_sectors(&vhdm, f, 2048, 8, buff);
