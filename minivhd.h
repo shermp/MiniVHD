@@ -39,41 +39,6 @@
    Data blocks are allocated on demand when a write is made to a sector which
    resides in a block that is sparse (not yet allocated).
    */
-  
-/* Offset of each field in the VHD footer */
-#define VHD_FOFF_COOKIE 0
-#define VHD_FOFF_FEATURES 8
-#define VHD_FOFF_VER 12
-#define VHD_FOFF_DAT_OFF 16
-#define VHD_FOFF_TS 24
-#define VHD_FOFF_CR 28
-#define VHD_FOFF_CR_VER 32
-#define VHD_FOFF_CR_HST 36
-#define VHD_FOFF_OG_SZ 40
-#define VHD_FOFF_CU_SZ 48
-#define VHD_FOFF_CYL 56
-#define VHD_FOFF_HEAD 58
-#define VHD_FOFF_SPT 59
-#define VHD_FOFF_TYPE 60
-#define VHD_FOFF_CHK 64
-#define VHD_FOFF_UUID 68
-#define VHD_FOFF_SS 84
-#define VHD_FOFF_RES 85
-
-/* Offset of each field in the VHD sparse header */
-#define VHD_SOFF_COOKIE 0
-#define VHD_SOFF_DAT_OFF 8
-#define VHD_SOFF_BAT_OFF 16
-#define VHD_SOFF_VERS 24
-#define VHD_SOFF_MAX_BAT 28
-#define VHD_SOFF_BLK_SZ 32
-#define VHD_SOFF_CHK 36
-#define VHD_SOFF_PAR_UUID 40
-#define VHD_SOFF_PAR_TS 56
-#define VHD_SOFF_RES_1 60
-#define VHD_SOFF_PAR_NM 64
-#define VHD_SOFF_PAR_LE_1 576
-#define VHD_SOFF_RES_2 768
 
 #define VHD_FOOTER_SZ 512
 #define VHD_SPARSE_HEAD_SZ 1024
