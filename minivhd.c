@@ -79,7 +79,7 @@ static uint32_t vhd_calc_timestamp(void)
 }
 time_t vhd_get_created_time(VHDMeta *vhdm)
 {
-        time_t vhd_time = (time_t)be32_to_cpu(vhdm->raw_footer[VHD_FOFF_TS]);
+        time_t vhd_time = (time_t)be32_to_cpu(vhdm->raw_footer.timestamp);
         time_t vhd_time_unix = VHD_START_TS + vhd_time;
         return vhd_time_unix;
 }
@@ -116,20 +116,18 @@ VHDError vhd_check_validity(VHDMeta *vhdm)
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
 {
         VHDError ret = VHD_RET_OK;
-        memset(vhdm->raw_footer, 0, VHD_FOOTER_SZ);
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
-        fread(vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
+        fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
         // Check for valid cookie
-        if (strncmp((char*)VFT_CONECTIX_COOKIE, (char*)vhdm->raw_footer, 8) == 0)
+        if (strncmp((char*)VFT_CONECTIX_COOKIE, (char*)vhdm->raw_footer.cookie, 8) == 0)
         {
                 /* Don't want a pointer to who knows where... */
                 vhdm->sparse_bat_arr = NULL;
                 vhd_raw_foot_to_meta(vhdm);
                 if (vhdm->type == VHD_DYNAMIC)
                 {
-                        memset(vhdm->raw_sparse_header, 0, VHD_SPARSE_HEAD_SZ);
                         fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
-                        fread(vhdm->raw_sparse_header, 1, VHD_SPARSE_HEAD_SZ, f);
+                        fread(&vhdm->raw_sparse_header, 1, VHD_SPARSE_HEAD_SZ, f);
                         vhd_sparse_head_to_meta(vhdm);
                         if (!vhd_bat_from_file(vhdm, f))
                                 ret = VHD_RET_MALLOC_ERROR;
@@ -168,13 +166,13 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 memset(bat_buff, 255, sizeof(bat_buff));
                 memset(zero_padding, 0, sizeof(zero_padding));
                 fseeko64(f, 0, SEEK_SET);
-                fwrite(vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
+                fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
                 fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
-                fwrite(vhdm->raw_sparse_header, VHD_SPARSE_HEAD_SZ, 1, f);
+                fwrite(&vhdm->raw_sparse_header, VHD_SPARSE_HEAD_SZ, 1, f);
                 fseeko64(f, vhdm->sparse_bat_offset, SEEK_SET);
                 fwrite(bat_buff, sizeof(bat_buff), 1, f);
                 fwrite(zero_padding, sizeof(zero_padding), 1, f);
-                fwrite(vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
+                fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
         else
         {
@@ -187,30 +185,23 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 {
                         fwrite(zero_buff, sizeof(zero_buff), 1, f);
                 }
-                fwrite(vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
+                fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
 }
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm)
 {
-        memcpy(&vhdm->type, vhdm->raw_footer + VHD_FOFF_TYPE, sizeof(vhdm->type));
-        vhdm->type = be32_to_cpu(vhdm->type);
-        memcpy(&vhdm->curr_size, vhdm->raw_footer + VHD_FOFF_CU_SZ, sizeof(vhdm->curr_size));
-        vhdm->curr_size = be64_to_cpu(vhdm->curr_size);
-        memcpy(&vhdm->geom.cyl, vhdm->raw_footer + VHD_FOFF_CYL, sizeof(vhdm->geom.cyl));
-        vhdm->geom.cyl = be16_to_cpu(vhdm->geom.cyl);
-        memcpy(&vhdm->geom.heads, vhdm->raw_footer + VHD_FOFF_HEAD, sizeof(vhdm->geom.heads));
-        memcpy(&vhdm->geom.spt, vhdm->raw_footer + VHD_FOFF_SPT, sizeof(vhdm->geom.spt));
-        memcpy(&vhdm->sparse_header_offset, vhdm->raw_footer + VHD_FOFF_DAT_OFF, sizeof(vhdm->sparse_header_offset));
-        vhdm->sparse_header_offset = be64_to_cpu(vhdm->sparse_header_offset);
+        vhdm->type = be32_to_cpu(vhdm->raw_footer.disk_type);
+        vhdm->curr_size = be64_to_cpu(vhdm->raw_footer.curr_sz);
+        vhdm->geom.cyl = be16_to_cpu(vhdm->raw_footer.geom.cyl);
+        vhdm->geom.heads = vhdm->raw_footer.geom.heads;
+        vhdm->geom.spt = vhdm->raw_footer.geom.spt;
+        vhdm->sparse_header_offset = be64_to_cpu(vhdm->raw_footer.data_offset);
 }
 static void vhd_sparse_head_to_meta(VHDMeta *vhdm)
 {
-        memcpy(&vhdm->sparse_bat_offset, vhdm->raw_sparse_header + VHD_SOFF_BAT_OFF, sizeof(vhdm->sparse_bat_offset));
-        vhdm->sparse_bat_offset = be64_to_cpu(vhdm->sparse_bat_offset);
-        memcpy(&vhdm->sparse_max_bat, vhdm->raw_sparse_header + VHD_SOFF_MAX_BAT, sizeof(vhdm->sparse_max_bat));
-        vhdm->sparse_max_bat = be32_to_cpu(vhdm->sparse_max_bat);
-        memcpy(&vhdm->sparse_block_sz, vhdm->raw_sparse_header + VHD_SOFF_BLK_SZ, sizeof(vhdm->sparse_block_sz));
-        vhdm->sparse_block_sz = be32_to_cpu(vhdm->sparse_block_sz);
+        vhdm->sparse_bat_offset = be64_to_cpu(vhdm->raw_sparse_header.table_offset);
+        vhdm->sparse_max_bat = be32_to_cpu(vhdm->raw_sparse_header.max_bat_ent);
+        vhdm->sparse_block_sz = be32_to_cpu(vhdm->raw_sparse_header.block_sz);
         vhdm->sparse_spb = vhdm->sparse_block_sz / VHD_SECTOR_SZ;
         vhdm->sparse_sb_sz = vhdm->sparse_spb / 8;
         if (vhdm->sparse_sb_sz % VHD_SECTOR_SZ != 0)
@@ -219,54 +210,38 @@ static void vhd_sparse_head_to_meta(VHDMeta *vhdm)
 static void vhd_new_raw(VHDMeta *vhdm)
 {
         /* Zero buffers */
-        memset(vhdm->raw_footer, 0, VHD_FOOTER_SZ);
-        memset(vhdm->raw_sparse_header, 0, VHD_SPARSE_HEAD_SZ);
+        memset(&vhdm->raw_footer, 0, VHD_FOOTER_SZ);
+        memset(&vhdm->raw_sparse_header, 0, VHD_SPARSE_HEAD_SZ);
         /* Write to footer buffer. */
-        memcpy(vhdm->raw_footer + VHD_FOFF_COOKIE, VFT_CONECTIX_COOKIE, sizeof(VFT_CONECTIX_COOKIE));
-        uint32_t features = cpu_to_be32(0x00000002);
-        memcpy(vhdm->raw_footer + VHD_FOFF_FEATURES, &features, sizeof(features));
-        uint32_t file_fmt_vers = cpu_to_be32(0x00010000);
-        memcpy(vhdm->raw_footer + VHD_FOFF_VER, &file_fmt_vers, sizeof(file_fmt_vers));
-        uint64_t sparse_dat_offset;
+        strncpy((char*)vhdm->raw_footer.cookie, (char*)VFT_CONECTIX_COOKIE, sizeof(VFT_CONECTIX_COOKIE));
+        vhdm->raw_footer.features = cpu_to_be32(0x00000002);
+        vhdm->raw_footer.fi_fmt_vers = cpu_to_be32(0x00010000);
         if (vhdm->type == VHD_DYNAMIC)
-                sparse_dat_offset = cpu_to_be64(vhdm->sparse_header_offset);
+                vhdm->raw_footer.data_offset = cpu_to_be64(vhdm->sparse_header_offset);
         else
-                sparse_dat_offset = 0xffffffffffffffff;
-        memcpy(vhdm->raw_footer + VHD_FOFF_DAT_OFF, &sparse_dat_offset, sizeof(sparse_dat_offset));
-        uint32_t timestamp = cpu_to_be32(vhd_calc_timestamp());
-        memcpy(vhdm->raw_footer + VHD_FOFF_TS, &timestamp, sizeof(timestamp));
-        memcpy(vhdm->raw_footer + VHD_FOFF_CR, VFT_CREATOR, sizeof(VFT_CREATOR));
-        uint32_t creator_vers = cpu_to_be32(0x000e0000);
-        memcpy(vhdm->raw_footer + VHD_FOFF_CR_VER, &creator_vers, sizeof(creator_vers));
-        memcpy(vhdm->raw_footer + VHD_FOFF_CR_HST, VFT_CREATOR_HOST_OS, sizeof(VFT_CREATOR_HOST_OS));
-        uint64_t sz = cpu_to_be64(vhdm->curr_size);
-        memcpy(vhdm->raw_footer + VHD_FOFF_OG_SZ, &sz, sizeof(sz));
-        memcpy(vhdm->raw_footer + VHD_FOFF_CU_SZ, &sz, sizeof(sz));
-        uint16_t cyl = cpu_to_be16(vhdm->geom.cyl);
-        memcpy(vhdm->raw_footer + VHD_FOFF_CYL, &cyl, sizeof(cyl));
-        vhdm->raw_footer[VHD_FOFF_HEAD] = vhdm->geom.heads;
-        vhdm->raw_footer[VHD_FOFF_SPT] = vhdm->geom.spt;
-        uint32_t disk_type = cpu_to_be32(vhdm->type);
-        memcpy(vhdm->raw_footer + VHD_FOFF_TYPE, &disk_type, sizeof(disk_type));
+                vhdm->raw_footer.data_offset = 0xffffffffffffffff;
+        vhdm->raw_footer.timestamp = cpu_to_be32(vhd_calc_timestamp());
+        strncpy((char*)vhdm->raw_footer.cr_app, (char*)VFT_CREATOR, sizeof(VFT_CREATOR));
+        vhdm->raw_footer.cr_vers = cpu_to_be32(0x000e0000);
+        strncpy((char*)vhdm->raw_footer.cr_host_os, (char*)VFT_CREATOR_HOST_OS, sizeof(VFT_CREATOR_HOST_OS));
+        vhdm->raw_footer.orig_sz = cpu_to_be64(vhdm->curr_size);
+        vhdm->raw_footer.curr_sz = cpu_to_be64(vhdm->curr_size);
+        vhdm->raw_footer.geom.cyl = cpu_to_be16(vhdm->geom.cyl);
+        vhdm->raw_footer.geom.heads = vhdm->geom.heads;
+        vhdm->raw_footer.geom.spt = vhdm->geom.spt;
+        vhdm->raw_footer.disk_type = cpu_to_be32(vhdm->type);
         uint8_t uuid[16];
         mk_guid(uuid);
-        memcpy(vhdm->raw_footer + VHD_FOFF_UUID, uuid, sizeof(uuid));
-        uint32_t chk = vhd_generate_be_checksum(vhdm, VHD_FIXED);
-        memcpy(vhdm->raw_footer + VHD_FOFF_CHK, &chk, sizeof(chk));
+        memcpy(vhdm->raw_footer.uuid, uuid, sizeof(uuid));
+        vhdm->raw_footer.checksum = vhd_generate_be_checksum(vhdm, VHD_FIXED);
         /* Write to sparse header buffer */
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_COOKIE, VHD_CXSPARSE_COOKIE, sizeof(VHD_CXSPARSE_COOKIE));
-        uint64_t sparse_data_offset = 0xffffffffffffffff;
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_DAT_OFF, &sparse_data_offset, sizeof(sparse_data_offset));
-        uint64_t bat_ofst = cpu_to_be64(vhdm->sparse_bat_offset);
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_BAT_OFF, &bat_ofst, sizeof(bat_ofst));
-        uint32_t sp_head_vers = cpu_to_be32(0x00010000);
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_VERS, &sp_head_vers, sizeof(sp_head_vers));
-        uint32_t bat_ent = cpu_to_be32(vhdm->sparse_max_bat);
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_MAX_BAT, &bat_ent, sizeof(bat_ent));
-        uint32_t bs = cpu_to_be32(vhdm->sparse_block_sz);
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_BLK_SZ, &bs, sizeof(bs));
-        chk = vhd_generate_be_checksum(vhdm, VHD_DYNAMIC);
-        memcpy(vhdm->raw_sparse_header + VHD_SOFF_CHK, &chk, sizeof(chk));
+        strncpy((char*)vhdm->raw_sparse_header.cookie, (char*)VHD_CXSPARSE_COOKIE, sizeof(VHD_CXSPARSE_COOKIE));
+        vhdm->raw_sparse_header.dat_offset = 0xffffffffffffffff;
+        vhdm->raw_sparse_header.table_offset = cpu_to_be64(vhdm->sparse_bat_offset);
+        vhdm->raw_sparse_header.head_vers = cpu_to_be32(0x00010000);
+        vhdm->raw_sparse_header.max_bat_ent = cpu_to_be32(vhdm->sparse_max_bat);
+        vhdm->raw_sparse_header.block_sz = cpu_to_be32(vhdm->sparse_block_sz);
+        vhdm->raw_sparse_header.checksum = vhd_generate_be_checksum(vhdm, VHD_DYNAMIC);
 }
 /* Create a dynamic array of the Block Allocation Table as stored in the file. */
 static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f)
@@ -305,20 +280,22 @@ static uint32_t vhd_generate_be_checksum(VHDMeta *vhdm, uint32_t type)
         uint32_t chk = 0;
         if (type == VHD_DYNAMIC)
         {
+                uint8_t *vhd_ptr = (uint8_t*)&vhdm->raw_sparse_header;
                 int i;
                 for (i = 0; i < VHD_SPARSE_HEAD_SZ; i++)
                 {
-                        if (i < VHD_SOFF_CHK || i >= VHD_SOFF_PAR_UUID)
-                                chk += vhdm->raw_sparse_header[i];
+                        if (i < offsetof(VHDSparseStruct, checksum) || i >= offsetof(VHDSparseStruct, par_uuid))
+                                chk += vhd_ptr[i];
                 }
         }
         else
         {
+                uint8_t *vft_ptr = (uint8_t*)&vhdm->raw_footer;
                 int i;
                 for (i = 0; i < VHD_FOOTER_SZ; i++)
                 {
-                        if (i < VHD_FOFF_CHK || i >= VHD_FOFF_UUID)
-                                chk += vhdm->raw_footer[i];
+                        if (i < offsetof(VHDFooterStruct, checksum) || i >= offsetof(VHDFooterStruct, uuid))
+                                chk += vft_ptr[i];
                 }
         }
         chk = ~chk;
@@ -331,7 +308,7 @@ static VHDError vhd_validate_checksum(VHDMeta *vhdm)
         uint32_t stored_chksum, calc_chksum;
         if (vhdm->type == VHD_DYNAMIC)
         {
-                memcpy(&stored_chksum, vhdm->raw_sparse_header + VHD_SOFF_CHK, sizeof(stored_chksum));
+                stored_chksum = vhdm->raw_sparse_header.checksum;
                 calc_chksum = vhd_generate_be_checksum(vhdm, VHD_DYNAMIC);
                 if (stored_chksum != calc_chksum)
                 {
@@ -339,7 +316,7 @@ static VHDError vhd_validate_checksum(VHDMeta *vhdm)
                         return ret;
                 }
         }
-        memcpy(&stored_chksum, vhdm->raw_footer + VHD_FOFF_CHK, sizeof(stored_chksum));
+        stored_chksum = vhdm->raw_footer.checksum;
         calc_chksum = vhd_generate_be_checksum(vhdm, VHD_FIXED);
         if (stored_chksum != calc_chksum)
                 ret = VHD_WARN_BAD_CHECKSUM;
@@ -596,11 +573,38 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
                 return 1;
         return 0;
 }
+
+static void vhd_free_vhdm_elt(VHDMeta *vhdm)
+{
+        if (vhdm->sparse_bat_arr)
+        {
+                free(vhdm->sparse_bat_arr);
+                vhdm->sparse_bat_arr = NULL;
+        }
+        if (vhdm->par_vhd_file)
+        {
+                free(vhdm->par_vhd_file);
+                vhdm->par_vhd_file = NULL;
+        }
+}
 void vhd_close(VHDMeta *vhdm)
 {
         if (vhdm->sparse_bat_arr)
         {
                 free(vhdm->sparse_bat_arr);
                 vhdm->sparse_bat_arr = NULL;
+        }
+        if (vhdm->par_vhd_file && vhdm->par_vhdm)
+        {
+                VHDMeta *par_vhdm = vhdm->par_vhdm;
+                vhdm->par_vhdm = NULL;
+                while (par_vhdm)
+                {
+                        VHDMeta *par_vhdm_next = par_vhdm->par_vhdm;
+                        par_vhdm->par_vhdm = NULL;
+                        vhd_free_vhdm_elt(par_vhdm);
+                        free(par_vhdm);
+                        par_vhdm = par_vhdm_next;
+                }
         }
 }
