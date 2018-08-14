@@ -54,6 +54,7 @@
 /* Win 10 appears to add 7 sectors of zero padding between blocks, and before the footer. */
 #define VHD_BLK_PADDING 3584
 
+/* Forward declare the "raw" structs. Users of the library should not attempt to access these */
 typedef struct VHDFooterStruct VHDFooterStruct;
 typedef struct VHDSparseStruct VHDSparseStruct;
 
