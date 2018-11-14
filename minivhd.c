@@ -31,61 +31,6 @@ uint8_t VFT_CREATOR[] = {'p','c', 'e', 'm'};
 uint8_t VFT_CREATOR_HOST_OS[] = {'W', 'i', '2','k'};
 uint8_t VHD_CXSPARSE_COOKIE[] = {'c', 'x', 's', 'p', 'a', 'r', 's', 'e'};
 
-/* Don't align struct members, so we can copy the header 
-   and footer directly into the struct from the file.
-   
-   Should be compatible with MSVC and GCC */
-# pragma pack(push, 1)
-/* All values big endian */
-struct VHDFooterStruct
-{
-        uint8_t cookie[8];
-        uint32_t features;
-        uint32_t fi_fmt_vers;
-        uint64_t data_offset;
-        uint32_t timestamp;
-        uint8_t cr_app[4];
-        uint32_t cr_vers;
-        uint8_t cr_host_os[4];
-        uint64_t orig_sz;
-        uint64_t curr_sz;
-        struct {
-                uint16_t cyl;
-                uint8_t heads;
-                uint8_t spt;
-        } geom;
-        uint32_t disk_type;
-        uint32_t checksum;
-        uint8_t uuid[16];
-        uint8_t saved_st;
-        uint8_t reserved[427];
-};
-/* All values big endian */
-struct VHDSparseStruct
-{
-        uint8_t cookie[8];
-        uint64_t dat_offset;
-        uint64_t table_offset;
-        uint32_t head_vers;
-        uint32_t max_bat_ent;
-        uint32_t block_sz;
-        uint32_t checksum;
-        uint8_t par_uuid[16];
-        uint32_t par_timestamp;
-        uint32_t reserved_1;
-        uint8_t par_utf16_name[512];
-        struct {
-                uint32_t plat_code;
-                uint32_t plat_data_space;
-                uint32_t plat_data_len;
-                uint32_t reserved;
-                uint64_t plat_data_offset;
-        } par_loc_entry[8];
-        uint8_t reserved_2[256];
-};
-/* Restore default alignment behaviour */
-# pragma pack(pop)
-
 /* Internal functions */
 static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
@@ -629,37 +574,11 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
         return 0;
 }
 
-static void vhd_free_vhdm_elt(VHDMeta *vhdm)
-{
-        if (vhdm->sparse_bat_arr)
-        {
-                free(vhdm->sparse_bat_arr);
-                vhdm->sparse_bat_arr = NULL;
-        }
-        if (vhdm->par_vhd_file)
-        {
-                free(vhdm->par_vhd_file);
-                vhdm->par_vhd_file = NULL;
-        }
-}
 void vhd_close(VHDMeta *vhdm)
 {
         if (vhdm->sparse_bat_arr)
         {
                 free(vhdm->sparse_bat_arr);
                 vhdm->sparse_bat_arr = NULL;
-        }
-        if (vhdm->par_vhd_file && vhdm->par_vhdm)
-        {
-                VHDMeta *par_vhdm = vhdm->par_vhdm;
-                vhdm->par_vhdm = NULL;
-                while (par_vhdm)
-                {
-                        VHDMeta *par_vhdm_next = par_vhdm->par_vhdm;
-                        par_vhdm->par_vhdm = NULL;
-                        vhd_free_vhdm_elt(par_vhdm);
-                        free(par_vhdm);
-                        par_vhdm = par_vhdm_next;
-                }
         }
 }

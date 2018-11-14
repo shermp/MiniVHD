@@ -1,5 +1,5 @@
-#ifndef HDD_FILE_VHD_H
-#define HDD_FILE_VHD_H
+#ifndef MINIVHD_H
+#define MINIVHD_H
 /* Brief notes on the VHD format, as used by MiniVHD.
 
    The format is documented in the word doc titled
@@ -40,6 +40,8 @@
    resides in a block that is sparse (not yet allocated).
    */
 
+#include "minivhd_internal.h"
+
 #define VHD_FOOTER_SZ 512
 #define VHD_SPARSE_HEAD_SZ 1024
 #define VHD_SECTOR_SZ 512
@@ -53,10 +55,6 @@
 #define VHD_MAX_SZ_MB 32255 /* Using max (65535 * 16 * 63) geom  */
 /* Win 10 appears to add 7 sectors of zero padding between blocks, and before the footer. */
 #define VHD_BLK_PADDING 3584
-
-/* Forward declare the "raw" structs. Users of the library should not attempt to access these */
-typedef struct VHDFooterStruct VHDFooterStruct;
-typedef struct VHDSparseStruct VHDSparseStruct;
 
 typedef enum VHDError
 {
@@ -79,11 +77,6 @@ typedef enum VHDType
         VHD_DIFF = 4
 } VHDType;
 
-extern uint8_t VFT_CONECTIX_COOKIE[];
-extern uint8_t VFT_CREATOR[];
-extern uint8_t VFT_CREATOR_HOST_OS[];
-extern uint8_t VHD_CXSPARSE_COOKIE[];
-
 typedef struct VHDGeom
 {
         uint16_t cyl;
@@ -105,8 +98,6 @@ typedef struct VHDMeta
         uint32_t sparse_block_sz;
         uint32_t sparse_spb;
         uint32_t sparse_sb_sz;
-        FILE *par_vhd_file;
-        struct VHDMeta *par_vhdm;
         VHDFooterStruct raw_footer;
         VHDSparseStruct raw_sparse_header;
 } VHDMeta;
