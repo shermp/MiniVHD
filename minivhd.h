@@ -75,8 +75,7 @@ typedef enum VHDError
 typedef enum VHDType
 {
         VHD_FIXED = 2,
-        VHD_DYNAMIC = 3,
-        VHD_DIFF = 4
+        VHD_DYNAMIC = 3
 } VHDType;
 
 typedef struct VHDGeom
