@@ -329,13 +329,12 @@ VHDGeom vhd_calc_chs(uint32_t sz_mb)
         VHDGeom chs;
         uint32_t ts = ((uint64_t)sz_mb * 1024 * 1024) / VHD_SECTOR_SZ;
         uint32_t spt, heads, cyl, cth;
-        /* PCem does not currently support spt > 63 */
-        // if (ts > 65535 * 16 * 255)
-        //         ts = 65535 * 16 * 255;
+        if (ts > 65535 * 16 * 255)
+                ts = 65535 * 16 * 255;
         if (ts >= 65535 * 16 * 63)
         {
                 ts = 65535 * 16 * 63;
-                spt = 63;
+                spt = 255;
                 heads = 16;
                 cth = ts / spt;
         }

@@ -49,10 +49,12 @@
 #define VHD_SPARSE_BLK 0xffffffff
 #define VHD_DEF_BLOCK_SZ 2097152
 #define VHD_START_TS 946684800
-// #define MAX_BAT_SIZE_BYTES 16896
-#define VHD_MAX_BAT_SIZE_BYTES 64512 /* Enough entries for largest VHD PCem can create */
+
+/* Enough entries for largest VHD MiniVHD can create.
+   Calculated by ceil(65535 * 16 * 255 / 4096) * 4 */
+#define VHD_MAX_BAT_SIZE_BYTES 261120
 #define VHD_MAX_CYL 65535 /* VHD stores the cylinders as a 16-bit unsigned int */
-#define VHD_MAX_SZ_MB 32255 /* Using max (65535 * 16 * 63) geom  */
+#define VHD_MAX_SZ_MB 130559 /* Using max (65535 * 16 * 255) geom  */
 /* Win 10 appears to add 7 sectors of zero padding between blocks, and before the footer. */
 #define VHD_BLK_PADDING 3584
 
