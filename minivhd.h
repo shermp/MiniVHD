@@ -102,16 +102,80 @@ typedef struct VHDMeta
         VHDSparseStruct raw_sparse_header;
 } VHDMeta;
 
-
+/* Check if given file is a VHD image
+   f:    Pointer to potential VHD file */
 int vhd_file_is_vhd(FILE *f);
+
+/* Read VHD metadata into a VHDMeta struct
+   f:    Pointer to VHD file
+   vhdm: Pointer to VHDMeta struct
+   
+   Returns VHD_RET_OK on success. 
+   Or VHD_RET_MALLOC_ERROR if there was a memory allocation error.
+   Or VHD_RET_NOT_VHD if the provided file was not a VHD image */
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm);
+
+/* Create a new, empty VHD image of the given size
+   f:      Pointer to VHD file
+   vhdm:   Pointer to VHDMeta struct
+   sz_mb:  Size of VHD image, in megabytes. Size must be <= VHD_MAX_SZ_MB
+   type:   Type of VHD image (VHD_FIXED or VHD_DYNAMIC) */
 void vhd_create_file_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type);
+
+/* Create a new, empty VHD image with the given geometry.
+   f:      Pointer to VHD file
+   vhdm:   Pointer to VHDMeta struct
+   cyl:    Number of cylinders. Max 65535
+   heads:  Number of heads. Max 16
+   spt:    Sectors per Track. Max 63
+   type:   Type of VHD image (VHD_FIXED or VHD_DYNAMIC) */
 void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type);
+
+/* Basic VHD integrity check.
+   vhdm:   Pointer to VHDMeta struct
+   
+   Returns VHD_VALID for a valid VHD file.
+   Or VHD_ERR_TYPE_UNSUPPORTED if the VHD type is not fixed or dynamic.
+   Or VHD_ERR_GEOM_SIZE_MISMATCH if there is a mismatch between size and geometry.
+   Or VHD_WARN_SPT_SZ if spt > 63.
+   Or VHD_ERR_BAD_DYN_CHECKSUM if the dynamic/sparse header checksum is incorrect.
+   Or VHD_WARN_BAD_CHECKSUM if the footer checksum is incorrect. */
 VHDError vhd_check_validity(VHDMeta *vhdm);
+
+/* Calculate HDD gemoetry from the provided size, using the VHD algorithm.
+   sz_mb:  Size of the desired size, in MB.
+   
+   Returns the calculated geometry in a VHDGeom struct */
 VHDGeom vhd_calc_chs(uint32_t sz_mb);
+
+/* Returns the VHD creation time as a Unix timestamp
+   vhdm:   Pointer to VHDMeta struct */
 time_t vhd_get_created_time(VHDMeta *vhdm);
+
+/* Read sectors from VHD into a buffer.
+   vhdm:       Pointer to VHDMeta struct
+   f:          Pointer to VHD file
+   offset:     Sector offset to begin reading from
+   nr_sectors: Number of sectors to read
+   buffer:     Buffer to read data into */
 int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *buffer);
+
+/* Write sectors from buffer to a VHD image.
+   vhdm:       Pointer to VHDMeta struct
+   f:          Pointer to VHD file
+   offset:     Sector offset to begin writing to
+   nr_sectors: Number of sectors to write
+   buffer:     Buffer to read data from */
 int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *buffer);
+
+/* Format (zero) sectors.
+   vhdm:       Pointer to VHDMeta struct
+   f:          Pointer to VHD file
+   offset:     Sector offset to begin writing to
+   nr_sectors: Number of sectors to write */
 int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors);
+
+/* Frees any memory associated with a VHDMeta struct. Does NOT close the VHD file itself.
+   vhdm:   Pointer to VHDMeta struct */
 void vhd_close(VHDMeta *vhdm);
 #endif
