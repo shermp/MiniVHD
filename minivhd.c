@@ -184,7 +184,6 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
         if (type == VHD_DYNAMIC)
         {
                 size_t s;
-                uint8_t zero_byte = 0U;
                 uint8_t max_byte = 255U;
                 fseeko64(f, 0, SEEK_SET);
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
