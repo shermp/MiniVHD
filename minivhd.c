@@ -159,31 +159,36 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
         if (vhdm->curr_size % vhdm->sparse_block_sz != 0)
                 {vhdm->sparse_max_bat += 1;}
         vhd_new_raw(vhdm);
+        uint8_t zero_buff[VHD_SECTOR_SZ];
+        memset(zero_buff, 0, sizeof zero_buff);
         if (type == VHD_DYNAMIC)
         {
-                uint8_t zero_padding[VHD_BLK_PADDING];
-                uint8_t bat_buff[VHD_MAX_BAT_SIZE_BYTES];
-                memset(bat_buff, 255, sizeof(bat_buff));
-                memset(zero_padding, 0, sizeof(zero_padding));
+                size_t s;
+                uint8_t zero_byte = 0U;
+                uint8_t max_byte = 255U;
                 fseeko64(f, 0, SEEK_SET);
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
                 fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
                 fwrite(&vhdm->raw_sparse_header, VHD_SPARSE_HEAD_SZ, 1, f);
                 fseeko64(f, vhdm->sparse_bat_offset, SEEK_SET);
-                fwrite(bat_buff, sizeof(bat_buff), 1, f);
-                fwrite(zero_padding, sizeof(zero_padding), 1, f);
+                for (s = 0; s < VHD_MAX_BAT_SIZE_BYTES; s++)
+                {
+                        fwrite(&max_byte, sizeof max_byte, 1, f);
+                }
+                for (s = 0; s < VHD_BLK_PADDING_SECT; s++)
+                {
+                        fwrite(zero_buff, sizeof zero_buff, 1, f);
+                }
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
         else
         {
-                uint8_t zero_buff[VHD_SECTOR_SZ];
-                memset(zero_buff, 0, sizeof(zero_buff));
                 uint32_t vhd_sect_sz = vhdm->curr_size / VHD_SECTOR_SZ;
                 uint32_t i;
                 fseeko64(f, 0, SEEK_SET);
                 for (i = 0; i < vhd_sect_sz; i++)
                 {
-                        fwrite(zero_buff, sizeof(zero_buff), 1, f);
+                        fwrite(zero_buff, sizeof zero_buff, 1, f);
                 }
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
@@ -371,10 +376,8 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
         uint8_t ftr[VHD_SECTOR_SZ];
         uint8_t zero_sect[VHD_SECTOR_SZ];
         uint8_t full_sect[VHD_SECTOR_SZ];
-        uint8_t zero_padding[VHD_BLK_PADDING];
         memset(zero_sect, 0, VHD_SECTOR_SZ);
         memset(full_sect, 255, VHD_SECTOR_SZ);
-        memset(zero_padding, 0, sizeof(zero_padding));
         uint32_t new_blk_offset;
         fseeko64(f, -512, SEEK_END);
         new_blk_offset = (uint64_t)ftello64(f) / VHD_SECTOR_SZ;
@@ -393,7 +396,9 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                         else
                                 {fwrite(zero_sect, VHD_SECTOR_SZ, 1, f);}
                 }
-                fwrite(zero_padding, sizeof(zero_padding), 1, f);
+                for (s = 0; s < VHD_BLK_PADDING_SECT; s++) {
+                        fwrite(zero_sect, sizeof zero_sect, 1, f);
+                }
                 fwrite(ftr, VHD_FOOTER_SZ, 1, f);
                 vhdm->sparse_bat_arr[blk_num] = new_blk_offset;
                 vhd_update_bat(vhdm, f, blk_num);

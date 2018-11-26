@@ -56,7 +56,7 @@
 #define VHD_MAX_CYL 65535 /* VHD stores the cylinders as a 16-bit unsigned int */
 #define VHD_MAX_SZ_MB 130559 /* Using max (65535 * 16 * 255) geom  */
 /* Win 10 appears to add 7 sectors of zero padding between blocks, and before the footer. */
-#define VHD_BLK_PADDING 3584
+#define VHD_BLK_PADDING_SECT 7
 
 typedef enum VHDError
 {
