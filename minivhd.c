@@ -612,7 +612,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
         else
         {
                 /* Code from PCem */
-                off64_t addr;
+                uint64_t addr;
                 int c;
                 uint8_t zero_buffer[VHD_SECTOR_SZ];
                 memset(zero_buffer, 0, VHD_SECTOR_SZ);
