@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/time.h>
+#include <time.h>
 #ifdef HAVE_UUID_H
 #include <uuid/uuid.h>
 #endif
@@ -460,48 +460,34 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
         }
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int start_blk = offset / vhdm->sparse_spb;
-                int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
                 int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
-                /* Most common case. No need to access multiple data blocks. */
-                if (start_blk == end_blk)
+                int prev_blk = -1;
+                int curr_blk;               
+                uint32_t s, ls, sib;
+                uint8_t *buff_ptr = (uint8_t*)buffer;
+                ls = offset + (transfer_sectors - 1);
+                for (s = offset; s <= ls; s++)
                 {
-                        uint32_t sib = offset % vhdm->sparse_spb;
+                        curr_blk = s / vhdm->sparse_spb;
+                        sib = s % vhdm->sparse_spb;
                         /* If the data block doesn't yet exist, fill the buffer with zero data */
-                        if (vhdm->sparse_bat_arr[start_blk] == VHD_SPARSE_BLK)
+                        if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
-                                memset(buffer, 0, (transfer_sectors * VHD_SECTOR_SZ));
+                                memset(buff_ptr, 0, VHD_SECTOR_SZ);
                         }
                         else
                         {
-                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[start_blk] + sbsz + sib;
-                                fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                fread(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
-                        }
-                }
-                /* Sometimes reads cross data block boundries. We handle this case here. */
-                else
-                {
-                        uint32_t s, ls;
-                        ls = offset + (transfer_sectors - 1);
-                        for (s = offset; s <= ls; s++)
-                        {
-                                int blk = s / vhdm->sparse_spb;
-                                uint32_t sib = s % vhdm->sparse_spb;
-                                /* If the data block doesn't yet exist, fill the buffer with zero data */
-                                if (vhdm->sparse_bat_arr[blk] == VHD_SPARSE_BLK)
+                                if (curr_blk != prev_blk)
                                 {
-                                        memset(buffer, 0, VHD_SECTOR_SZ);
-                                }
-                                else
-                                {
-                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[blk] + sbsz + sib;
+                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
                                         fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                        fread(buffer, VHD_SECTOR_SZ, 1, f);
+                                        prev_blk = curr_blk;
                                 }
-                                buffer = (uint8_t *)buffer + VHD_SECTOR_SZ;
+                                fread(buff_ptr, VHD_SECTOR_SZ, 1, f);
                         }
+                        buff_ptr += VHD_SECTOR_SZ;
                 }
+                
         }
         else
         {
