@@ -532,7 +532,17 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         /* We need to create a data block if it does not yet exist. */
                         if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
-                                vhd_create_blk(vhdm, f, curr_blk);
+                                /* If the sector to write contains all zeros, hold off on block creation and therefore
+                                   writing to file for this sector. */
+                                if (memcmp(buff_ptr, VHD_ZERO_SECTOR, VHD_SECTOR_SZ) == 0)
+                                {
+                                        buff_ptr += VHD_SECTOR_SZ;
+                                        continue;
+                                }
+                                else
+                                {
+                                        vhd_create_blk(vhdm, f, curr_blk);
+                                }
                         }
                         if (curr_blk != prev_blk)
                         {
