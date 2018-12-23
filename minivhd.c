@@ -31,7 +31,12 @@ uint8_t VFT_CREATOR[] = {'p', 'c', 'e', 'm'};
 uint8_t VFT_CREATOR_HOST_OS[] = {'W', 'i', '2', 'k'};
 uint8_t VHD_CXSPARSE_COOKIE[] = {'c', 'x', 's', 'p', 'a', 'r', 's', 'e'};
 
+/* Global 'zeroed' and 'full' sector buffers */
+uint8_t VHD_ZERO_SECTOR[VHD_SECTOR_SZ];
+uint8_t VHD_FULL_SECTOR[VHD_SECTOR_SZ];
+
 /* Internal functions */
+static void vhd_init_global_buffers(void);
 static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm);
@@ -64,6 +69,12 @@ static void mk_guid(uint8_t *guid)
         guid[8] &= 0x3F;
         guid[8] |= 0x80; /* Variant 1 */
 #endif
+}
+/* Init the global sector buffers */
+static void vhd_init_global_buffers(void)
+{
+        memset(VHD_ZERO_SECTOR, 0x00, sizeof VHD_ZERO_SECTOR);
+        memset(VHD_FULL_SECTOR, 0xFF, sizeof VHD_FULL_SECTOR);
 }
 /* Calculate the current timestamp. */
 static uint32_t vhd_calc_timestamp(void)
@@ -129,6 +140,7 @@ VHDError vhd_check_validity(VHDMeta *vhdm)
 }
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
 {
+        vhd_init_global_buffers();
         VHDError ret = VHD_RET_OK;
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
@@ -164,6 +176,7 @@ void vhd_create_file_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type)
 /* Create VHD file from CHS geometry. */
 void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type)
 {
+        vhd_init_global_buffers();
         uint64_t vhd_sz = (uint64_t)cyl * heads * spt * VHD_SECTOR_SZ;
         vhdm->curr_size = vhd_sz;
         vhdm->geom.cyl = (uint16_t)cyl;
@@ -179,8 +192,6 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 vhdm->sparse_max_bat += 1;
         }
         vhd_new_raw(vhdm);
-        uint8_t zero_buff[VHD_SECTOR_SZ];
-        memset(zero_buff, 0, sizeof zero_buff);
         if (type == VHD_DYNAMIC)
         {
                 size_t s;
@@ -196,7 +207,7 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 }
                 for (s = 0; s < VHD_BLK_PADDING_SECT; s++)
                 {
-                        fwrite(zero_buff, sizeof zero_buff, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, sizeof VHD_ZERO_SECTOR, 1, f);
                 }
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
@@ -207,7 +218,7 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 fseeko64(f, 0, SEEK_SET);
                 for (i = 0; i < vhd_sect_sz; i++)
                 {
-                        fwrite(zero_buff, sizeof zero_buff, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, sizeof VHD_ZERO_SECTOR, 1, f);
                 }
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
@@ -413,10 +424,6 @@ VHDGeom vhd_calc_chs(uint32_t sz_mb)
 static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
 {
         uint8_t ftr[VHD_SECTOR_SZ];
-        uint8_t zero_sect[VHD_SECTOR_SZ];
-        uint8_t full_sect[VHD_SECTOR_SZ];
-        memset(zero_sect, 0, VHD_SECTOR_SZ);
-        memset(full_sect, 255, VHD_SECTOR_SZ);
         uint32_t new_blk_offset;
         fseeko64(f, -512, SEEK_END);
         new_blk_offset = (uint64_t)ftello64(f) / VHD_SECTOR_SZ;
@@ -432,16 +439,16 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                 {
                         if (s < sb_sz)
                         {
-                                fwrite(full_sect, VHD_SECTOR_SZ, 1, f);
+                                fwrite(VHD_FULL_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
                         else
                         {
-                                fwrite(zero_sect, VHD_SECTOR_SZ, 1, f);
+                                fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
                 }
                 for (s = 0; s < VHD_BLK_PADDING_SECT; s++)
                 {
-                        fwrite(zero_sect, sizeof zero_sect, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, sizeof VHD_ZERO_SECTOR, 1, f);
                 }
                 fwrite(ftr, VHD_FOOTER_SZ, 1, f);
                 vhdm->sparse_bat_arr[blk_num] = new_blk_offset;
@@ -553,8 +560,6 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
 }
 int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
 {
-        uint8_t zero_buffer[VHD_SECTOR_SZ];
-        memset(zero_buffer, 0, VHD_SECTOR_SZ);
         int transfer_sectors = nr_sectors;
         uint32_t total_sectors = vhdm->geom.cyl * vhdm->geom.heads * vhdm->geom.spt;
         /* This check comes from PCem */
@@ -582,7 +587,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
                                         fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                         prev_blk = curr_blk;
                                 }
-                                fwrite(zero_buffer, VHD_SECTOR_SZ, 1, f);
+                                fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
                 }
         }
@@ -593,7 +598,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
                 fseeko64(f, addr, SEEK_SET);
                 for (c = 0; c < transfer_sectors; c++)
                 {
-                        fwrite(zero_buffer, VHD_SECTOR_SZ, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
                 }
         }
         if (nr_sectors != transfer_sectors)
