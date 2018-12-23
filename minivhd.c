@@ -469,7 +469,6 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                 for (s = offset; s <= ls; s++)
                 {
                         curr_blk = s / vhdm->sparse_spb;
-                        sib = s % vhdm->sparse_spb;
                         /* If the data block doesn't yet exist, fill the buffer with zero data */
                         if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
@@ -479,6 +478,7 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                         {
                                 if (curr_blk != prev_blk)
                                 {
+                                        sib = s % vhdm->sparse_spb;
                                         uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
                                         fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                         prev_blk = curr_blk;
