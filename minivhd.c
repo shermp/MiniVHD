@@ -98,6 +98,7 @@ time_t vhd_get_created_time(VHDMeta *vhdm)
 int vhd_file_is_vhd(FILE *f)
 {
         uint8_t buffer[VHD_FOOTER_SZ];
+        memset(buffer, 0, sizeof buffer);
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(buffer, 1, VHD_FOOTER_SZ, f);
         int valid_vhd = 0;
