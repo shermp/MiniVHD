@@ -513,42 +513,29 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
         }
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int start_blk = offset / vhdm->sparse_spb;
-                int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
                 int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
-                /* Most common case. No need to access multiple data blocks. */
-                if (start_blk == end_blk)
+                int prev_blk, curr_blk;
+                prev_blk = -1;
+                uint32_t s, ls, sib;
+                uint8_t *buff_ptr = (uint8_t*)buffer;
+                ls = offset + (transfer_sectors - 1);
+                for (s = offset; s <= ls; s++)
                 {
-                        uint32_t sib = offset % vhdm->sparse_spb;
+                        curr_blk = s / vhdm->sparse_spb;
                         /* We need to create a data block if it does not yet exist. */
-                        if (vhdm->sparse_bat_arr[start_blk] == VHD_SPARSE_BLK)
+                        if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
-                                vhd_create_blk(vhdm, f, start_blk);
+                                vhd_create_blk(vhdm, f, curr_blk);
                         }
-                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[start_blk] + sbsz + sib;
-                        fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                        fwrite(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
-                }
-                /* Sometimes writes cross data block boundries. We handle this case here. */
-                else
-                {
-                        uint32_t s, ls;
-                        ls = offset + (transfer_sectors - 1);
-                        for (s = offset; s <= ls; s++)
+                        if (curr_blk != prev_blk)
                         {
-                                int blk = s / vhdm->sparse_spb;
-                                uint32_t sib = s % vhdm->sparse_spb;
-                                /* We need to create a data block if it does not yet exist. */
-                                if (vhdm->sparse_bat_arr[blk] == VHD_SPARSE_BLK)
-                                {
-                                        vhd_create_blk(vhdm, f, blk);
-                                }
-                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[blk] + sbsz + sib;
+                                sib = s % vhdm->sparse_spb;
+                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
                                 fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                fwrite(buffer, VHD_SECTOR_SZ, 1, f);
-
-                                buffer = (uint8_t *)buffer + VHD_SECTOR_SZ;
+                                prev_blk = curr_blk;
                         }
+                        fwrite(buff_ptr, VHD_SECTOR_SZ, 1, f);
+                        buff_ptr += VHD_SECTOR_SZ;
                 }
         }
         else
