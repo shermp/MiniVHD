@@ -588,12 +588,8 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
         }
         else
         {
-                /* Code from PCem */
-                uint64_t addr;
                 int c;
-                uint8_t zero_buffer[VHD_SECTOR_SZ];
-                memset(zero_buffer, 0, VHD_SECTOR_SZ);
-                addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                uint64_t addr = (uint64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 for (c = 0; c < transfer_sectors; c++)
                 {
