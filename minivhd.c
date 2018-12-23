@@ -19,6 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #ifdef HAVE_UUID_H
 #include <uuid/uuid.h>
@@ -39,6 +41,7 @@ uint8_t VHD_FULL_SECTOR[VHD_SECTOR_SZ];
 static void vhd_init_global_buffers(void);
 static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
+static uint64_t vhd_get_filesize(FILE* f);
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm);
 static void vhd_sparse_head_to_meta(VHDMeta *vhdm);
 static void vhd_new_raw(VHDMeta *vhdm);
@@ -94,14 +97,30 @@ time_t vhd_get_created_time(VHDMeta *vhdm)
         time_t vhd_time_unix = VHD_START_TS + vhd_time;
         return vhd_time_unix;
 }
+/* Get the size of FILE *f */
+static uint64_t vhd_get_filesize(FILE* f)
+{
+        struct _stat64 st;
+        uint64_t filesize = 0;
+        if (fstat64(fileno(f), &st) < 0) {
+                return filesize;
+        }
+        filesize = (uint64_t)st.st_size;
+        return filesize;
+}
 /* Test if a file is a VHD. */
 int vhd_file_is_vhd(FILE *f)
 {
+        int valid_vhd = 0;
+        /* Check that the filesize is larger than the footer */
+        if (vhd_get_filesize(f) < VHD_FOOTER_SZ)
+        {
+                return valid_vhd;
+        }
         uint8_t buffer[VHD_FOOTER_SZ];
         memset(buffer, 0, sizeof buffer);
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(buffer, 1, VHD_FOOTER_SZ, f);
-        int valid_vhd = 0;
         // Check for valid cookie
         if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)buffer, 8) == 0)
         {
@@ -143,6 +162,11 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
 {
         vhd_init_global_buffers();
         VHDError ret = VHD_RET_OK;
+        /* If the filesize is too small, we abort early */
+        if (vhd_get_filesize(f) < VHD_FOOTER_SZ)
+        {
+                return VHD_RET_NOT_VHD;
+        }
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
         // Check for valid cookie
