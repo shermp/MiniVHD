@@ -133,7 +133,7 @@ VHDError vhd_check_validity(VHDMeta *vhdm)
 {
         VHDError status, chksum_status;
         chksum_status = vhd_validate_checksum(vhdm);
-        if (vhdm->type != VHD_FIXED && vhdm->type != VHD_DYNAMIC)
+        if (vhdm->type != VHD_FIXED && vhdm->type != VHD_DYNAMIC && vhdm->type != VHD_DIFF)
         {
                 return status = VHD_ERR_TYPE_UNSUPPORTED;
         }
