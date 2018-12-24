@@ -19,7 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/time.h>
+#include <sys/types.h>
+#include <time.h>
 #ifdef HAVE_UUID_H
 #include <uuid/uuid.h>
 #endif
@@ -31,9 +32,15 @@ uint8_t VFT_CREATOR[] = {'p', 'c', 'e', 'm'};
 uint8_t VFT_CREATOR_HOST_OS[] = {'W', 'i', '2', 'k'};
 uint8_t VHD_CXSPARSE_COOKIE[] = {'c', 'x', 's', 'p', 'a', 'r', 's', 'e'};
 
+/* Global 'zeroed' and 'full' sector buffers */
+uint8_t VHD_ZERO_SECTOR[VHD_SECTOR_SZ];
+uint8_t VHD_FULL_SECTOR[VHD_SECTOR_SZ];
+
 /* Internal functions */
+static void vhd_init_global_buffers(void);
 static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
+static off64_t vhd_get_filesize(FILE* f);
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm);
 static void vhd_sparse_head_to_meta(VHDMeta *vhdm);
 static void vhd_new_raw(VHDMeta *vhdm);
@@ -65,6 +72,12 @@ static void mk_guid(uint8_t *guid)
         guid[8] |= 0x80; /* Variant 1 */
 #endif
 }
+/* Init the global sector buffers */
+static void vhd_init_global_buffers(void)
+{
+        memset(VHD_ZERO_SECTOR, 0x00, sizeof VHD_ZERO_SECTOR);
+        memset(VHD_FULL_SECTOR, 0xFF, sizeof VHD_FULL_SECTOR);
+}
 /* Calculate the current timestamp. */
 static uint32_t vhd_calc_timestamp(void)
 {
@@ -83,13 +96,27 @@ time_t vhd_get_created_time(VHDMeta *vhdm)
         time_t vhd_time_unix = VHD_START_TS + vhd_time;
         return vhd_time_unix;
 }
+/* Get the size of FILE *f */
+static off64_t vhd_get_filesize(FILE* f)
+{
+        off64_t filesize;
+        fseeko64(f, 0, SEEK_END);
+        filesize = ftello64(f);
+        return filesize;
+}
 /* Test if a file is a VHD. */
 int vhd_file_is_vhd(FILE *f)
 {
+        int valid_vhd = 0;
+        /* Check that the filesize is larger than the footer */
+        if (vhd_get_filesize(f) < VHD_FOOTER_SZ)
+        {
+                return valid_vhd;
+        }
         uint8_t buffer[VHD_FOOTER_SZ];
+        memset(buffer, 0, sizeof buffer);
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(buffer, 1, VHD_FOOTER_SZ, f);
-        int valid_vhd = 0;
         // Check for valid cookie
         if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)buffer, 8) == 0)
         {
@@ -129,7 +156,13 @@ VHDError vhd_check_validity(VHDMeta *vhdm)
 }
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
 {
+        vhd_init_global_buffers();
         VHDError ret = VHD_RET_OK;
+        /* If the filesize is too small, we abort early */
+        if (vhd_get_filesize(f) < VHD_FOOTER_SZ)
+        {
+                return VHD_RET_NOT_VHD;
+        }
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
         // Check for valid cookie
@@ -140,7 +173,7 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
                 vhd_raw_foot_to_meta(vhdm);
                 if (vhdm->type == VHD_DYNAMIC)
                 {
-                        fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
+                        fseeko64(f, (off64_t)vhdm->sparse_header_offset, SEEK_SET);
                         fread(&vhdm->raw_sparse_header, 1, VHD_SPARSE_HEAD_SZ, f);
                         vhd_sparse_head_to_meta(vhdm);
                         if (!vhd_bat_from_file(vhdm, f))
@@ -164,6 +197,7 @@ void vhd_create_file_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type)
 /* Create VHD file from CHS geometry. */
 void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type)
 {
+        vhd_init_global_buffers();
         uint64_t vhd_sz = (uint64_t)cyl * heads * spt * VHD_SECTOR_SZ;
         vhdm->curr_size = vhd_sz;
         vhdm->geom.cyl = (uint16_t)cyl;
@@ -179,24 +213,22 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 vhdm->sparse_max_bat += 1;
         }
         vhd_new_raw(vhdm);
-        uint8_t zero_buff[VHD_SECTOR_SZ];
-        memset(zero_buff, 0, sizeof zero_buff);
         if (type == VHD_DYNAMIC)
         {
                 size_t s;
                 uint8_t max_byte = 255U;
                 fseeko64(f, 0, SEEK_SET);
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
-                fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
+                fseeko64(f, (off64_t)vhdm->sparse_header_offset, SEEK_SET);
                 fwrite(&vhdm->raw_sparse_header, VHD_SPARSE_HEAD_SZ, 1, f);
-                fseeko64(f, vhdm->sparse_bat_offset, SEEK_SET);
+                fseeko64(f, (off64_t)vhdm->sparse_bat_offset, SEEK_SET);
                 for (s = 0; s < VHD_MAX_BAT_SIZE_BYTES; s++)
                 {
                         fwrite(&max_byte, sizeof max_byte, 1, f);
                 }
                 for (s = 0; s < VHD_BLK_PADDING_SECT; s++)
                 {
-                        fwrite(zero_buff, sizeof zero_buff, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, sizeof VHD_ZERO_SECTOR, 1, f);
                 }
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
@@ -207,7 +239,7 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 fseeko64(f, 0, SEEK_SET);
                 for (i = 0; i < vhd_sect_sz; i++)
                 {
-                        fwrite(zero_buff, sizeof zero_buff, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, sizeof VHD_ZERO_SECTOR, 1, f);
                 }
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
         }
@@ -293,7 +325,7 @@ static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f)
         for (b = 0; b < vhdm->sparse_max_bat; b++)
         {
                 uint32_t curr_entry;
-                uint64_t file_offset = vhdm->sparse_bat_offset + (b * 4);
+                off64_t file_offset = vhdm->sparse_bat_offset + (b * 4);
                 fseeko64(f, file_offset, SEEK_SET);
                 fread(&curr_entry, 4, 1, f);
                 vhdm->sparse_bat_arr[b] = be32_to_cpu(curr_entry);
@@ -303,7 +335,7 @@ static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f)
 /* Updates the Block Allocation Table in the file with the new offset for a block. */
 static void vhd_update_bat(VHDMeta *vhdm, FILE *f, int blk)
 {
-        uint64_t blk_file_offset = vhdm->sparse_bat_offset + (blk * 4);
+        off64_t blk_file_offset = vhdm->sparse_bat_offset + (blk * 4);
         uint32_t blk_offset = cpu_to_be32(vhdm->sparse_bat_arr[blk]);
         fseeko64(f, blk_file_offset, SEEK_SET);
         fwrite(&blk_offset, 4, 1, f);
@@ -413,13 +445,9 @@ VHDGeom vhd_calc_chs(uint32_t sz_mb)
 static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
 {
         uint8_t ftr[VHD_SECTOR_SZ];
-        uint8_t zero_sect[VHD_SECTOR_SZ];
-        uint8_t full_sect[VHD_SECTOR_SZ];
-        memset(zero_sect, 0, VHD_SECTOR_SZ);
-        memset(full_sect, 255, VHD_SECTOR_SZ);
         uint32_t new_blk_offset;
         fseeko64(f, -512, SEEK_END);
-        new_blk_offset = (uint64_t)ftello64(f) / VHD_SECTOR_SZ;
+        new_blk_offset = (off64_t)ftello64(f) / VHD_SECTOR_SZ;
         fread(ftr, 1, 512, f);
         fseeko64(f, -512, SEEK_END);
         /* Let's be sure we are not potentially overwriting a data block for some reason. */
@@ -432,16 +460,16 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                 {
                         if (s < sb_sz)
                         {
-                                fwrite(full_sect, VHD_SECTOR_SZ, 1, f);
+                                fwrite(VHD_FULL_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
                         else
                         {
-                                fwrite(zero_sect, VHD_SECTOR_SZ, 1, f);
+                                fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
                 }
                 for (s = 0; s < VHD_BLK_PADDING_SECT; s++)
                 {
-                        fwrite(zero_sect, sizeof zero_sect, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, sizeof VHD_ZERO_SECTOR, 1, f);
                 }
                 fwrite(ftr, VHD_FOOTER_SZ, 1, f);
                 vhdm->sparse_bat_arr[blk_num] = new_blk_offset;
@@ -460,53 +488,39 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
         }
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int start_blk = offset / vhdm->sparse_spb;
-                int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
                 int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
-                /* Most common case. No need to access multiple data blocks. */
-                if (start_blk == end_blk)
+                int prev_blk = -1;
+                int curr_blk;               
+                uint32_t s, ls, sib;
+                uint8_t *buff_ptr = (uint8_t*)buffer;
+                ls = offset + (transfer_sectors - 1);
+                for (s = offset; s <= ls; s++)
                 {
-                        uint32_t sib = offset % vhdm->sparse_spb;
+                        curr_blk = s / vhdm->sparse_spb;
                         /* If the data block doesn't yet exist, fill the buffer with zero data */
-                        if (vhdm->sparse_bat_arr[start_blk] == VHD_SPARSE_BLK)
+                        if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
-                                memset(buffer, 0, (transfer_sectors * VHD_SECTOR_SZ));
+                                memset(buff_ptr, 0, VHD_SECTOR_SZ);
                         }
                         else
                         {
-                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[start_blk] + sbsz + sib;
-                                fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                fread(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
-                        }
-                }
-                /* Sometimes reads cross data block boundries. We handle this case here. */
-                else
-                {
-                        uint32_t s, ls;
-                        ls = offset + (transfer_sectors - 1);
-                        for (s = offset; s <= ls; s++)
-                        {
-                                int blk = s / vhdm->sparse_spb;
-                                uint32_t sib = s % vhdm->sparse_spb;
-                                /* If the data block doesn't yet exist, fill the buffer with zero data */
-                                if (vhdm->sparse_bat_arr[blk] == VHD_SPARSE_BLK)
+                                if (curr_blk != prev_blk)
                                 {
-                                        memset(buffer, 0, VHD_SECTOR_SZ);
+                                        sib = s % vhdm->sparse_spb;
+                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
+                                        fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                        prev_blk = curr_blk;
                                 }
-                                else
-                                {
-                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[blk] + sbsz + sib;
-                                        fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                        fread(buffer, VHD_SECTOR_SZ, 1, f);
-                                }
-                                buffer = (uint8_t *)buffer + VHD_SECTOR_SZ;
+                                fread(buff_ptr, VHD_SECTOR_SZ, 1, f);
                         }
+                        buff_ptr += VHD_SECTOR_SZ;
                 }
+                
         }
         else
         {
                 /* Code from PCem */
-                uint64_t addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                off64_t addr = (off64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 fread(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
         }
@@ -527,48 +541,45 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
         }
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int start_blk = offset / vhdm->sparse_spb;
-                int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
                 int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
-                /* Most common case. No need to access multiple data blocks. */
-                if (start_blk == end_blk)
+                int prev_blk, curr_blk;
+                prev_blk = -1;
+                uint32_t s, ls, sib;
+                uint8_t *buff_ptr = (uint8_t*)buffer;
+                ls = offset + (transfer_sectors - 1);
+                for (s = offset; s <= ls; s++)
                 {
-                        uint32_t sib = offset % vhdm->sparse_spb;
+                        curr_blk = s / vhdm->sparse_spb;
                         /* We need to create a data block if it does not yet exist. */
-                        if (vhdm->sparse_bat_arr[start_blk] == VHD_SPARSE_BLK)
+                        if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
-                                vhd_create_blk(vhdm, f, start_blk);
-                        }
-                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[start_blk] + sbsz + sib;
-                        fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                        fwrite(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
-                }
-                /* Sometimes writes cross data block boundries. We handle this case here. */
-                else
-                {
-                        uint32_t s, ls;
-                        ls = offset + (transfer_sectors - 1);
-                        for (s = offset; s <= ls; s++)
-                        {
-                                int blk = s / vhdm->sparse_spb;
-                                uint32_t sib = s % vhdm->sparse_spb;
-                                /* We need to create a data block if it does not yet exist. */
-                                if (vhdm->sparse_bat_arr[blk] == VHD_SPARSE_BLK)
+                                /* If the sector to write contains all zeros, hold off on block creation and therefore
+                                   writing to file for this sector. */
+                                if (memcmp(buff_ptr, VHD_ZERO_SECTOR, VHD_SECTOR_SZ) == 0)
                                 {
-                                        vhd_create_blk(vhdm, f, blk);
+                                        buff_ptr += VHD_SECTOR_SZ;
+                                        continue;
                                 }
-                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[blk] + sbsz + sib;
-                                fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                fwrite(buffer, VHD_SECTOR_SZ, 1, f);
-
-                                buffer = (uint8_t *)buffer + VHD_SECTOR_SZ;
+                                else
+                                {
+                                        vhd_create_blk(vhdm, f, curr_blk);
+                                }
                         }
+                        if (curr_blk != prev_blk)
+                        {
+                                sib = s % vhdm->sparse_spb;
+                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
+                                fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                prev_blk = curr_blk;
+                        }
+                        fwrite(buff_ptr, VHD_SECTOR_SZ, 1, f);
+                        buff_ptr += VHD_SECTOR_SZ;
                 }
         }
         else
         {
                 /* Code from PCem */
-                uint64_t addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                off64_t addr = (off64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 fwrite(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
         }
@@ -580,8 +591,6 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
 }
 int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
 {
-        uint8_t zero_buffer[VHD_SECTOR_SZ];
-        memset(zero_buffer, 0, VHD_SECTOR_SZ);
         int transfer_sectors = nr_sectors;
         uint32_t total_sectors = vhdm->geom.cyl * vhdm->geom.heads * vhdm->geom.spt;
         /* This check comes from PCem */
@@ -592,49 +601,35 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
 
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int start_blk = offset / vhdm->sparse_spb;
-                int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
                 int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
-                /* Most common case. No need to access multiple data blocks. */
-                if (start_blk == end_blk)
+                int prev_blk, curr_blk;
+                prev_blk = -1;
+                uint32_t s, ls, sib;
+                ls = offset + (transfer_sectors - 1);
+                for (s = offset; s <= ls; s++)
                 {
-                        uint32_t sib = offset % vhdm->sparse_spb;
-                        if (vhdm->sparse_bat_arr[start_blk] != VHD_SPARSE_BLK)
+                        curr_blk = s / vhdm->sparse_spb;
+                        if (vhdm->sparse_bat_arr[curr_blk] != VHD_SPARSE_BLK)
                         {
-                                uint32_t file_sect_offs = vhdm->sparse_bat_arr[start_blk] + sbsz + sib;
-                                fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                fwrite(zero_buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
-                        }
-                }
-                else
-                {
-                        uint32_t s, ls;
-                        ls = offset + (transfer_sectors - 1);
-                        for (s = offset; s <= ls; s++)
-                        {
-                                int blk = s / vhdm->sparse_spb;
-                                uint32_t sib = s % vhdm->sparse_spb;
-                                if (vhdm->sparse_bat_arr[blk] != VHD_SPARSE_BLK)
+                                if (curr_blk != prev_blk)
                                 {
-                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[blk] + sbsz + sib;
-                                        fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                        fwrite(zero_buffer, VHD_SECTOR_SZ, 1, f);
+                                        sib = s % vhdm->sparse_spb;
+                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
+                                        fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                        prev_blk = curr_blk;
                                 }
+                                fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
                 }
         }
         else
         {
-                /* Code from PCem */
-                off64_t addr;
                 int c;
-                uint8_t zero_buffer[VHD_SECTOR_SZ];
-                memset(zero_buffer, 0, VHD_SECTOR_SZ);
-                addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                off64_t addr = (off64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 for (c = 0; c < transfer_sectors; c++)
                 {
-                        fwrite(zero_buffer, VHD_SECTOR_SZ, 1, f);
+                        fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
                 }
         }
         if (nr_sectors != transfer_sectors)
