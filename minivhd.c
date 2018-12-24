@@ -586,8 +586,10 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
         {
                 transfer_sectors = total_sectors - offset;
         }
-        if (vhdm->type == VHD_DYNAMIC)
+        if (vhdm->type != VHD_FIXED)
         {
+                VHDMeta *curr_vhdm = vhdm;
+                FILE *curr_f = f;
                 int sbsz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 int prev_blk = -1;
                 int curr_blk;               
@@ -596,24 +598,50 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                 ls = offset + (transfer_sectors - 1);
                 for (s = offset; s <= ls; s++)
                 {
-                        curr_blk = s / vhdm->sparse_spb;
-                        /* If the data block doesn't yet exist, fill the buffer with zero data */
-                        if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
+                        curr_blk = s / curr_vhdm->sparse_spb;
+                        /* If our file is a differencing VHD, find the appropriate file
+                           to read data from */
+                        while(curr_vhdm->type == VHD_DIFF)
                         {
-                                memset(buff_ptr, 0, VHD_SECTOR_SZ);
+                                vhd_read_sector_bitmap(curr_vhdm, curr_f, curr_blk);
+                                if (!VHD_TESTBIT(curr_vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib))
+                                {
+                                        curr_f = curr_vhdm->parent.f;
+                                        curr_vhdm = curr_vhdm->parent.meta;
+                                } 
+                                else 
+                                {
+                                        break;
+                                }
+                        }
+                        if (curr_vhdm->type == VHD_FIXED)
+                        {
+                                uint64_t addr = (uint64_t)s * VHD_SECTOR_SZ;
+                                fseeko64(curr_f, addr, SEEK_SET);
+                                fread(buffer, VHD_SECTOR_SZ, 1, curr_f);
                         }
                         else
                         {
-                                if (curr_blk != prev_blk)
+                                /* If the data block doesn't yet exist, fill the buffer with zero data */
+                                if (curr_vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                                 {
-                                        sib = s % vhdm->sparse_spb;
-                                        uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
-                                        fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
-                                        prev_blk = curr_blk;
+                                        memset(buff_ptr, 0, VHD_SECTOR_SZ);
                                 }
-                                fread(buff_ptr, VHD_SECTOR_SZ, 1, f);
+                                else
+                                {
+                                        if (curr_blk != prev_blk || vhdm->type == VHD_DIFF)
+                                        {
+                                                sib = s % curr_vhdm->sparse_spb;
+                                                uint32_t file_sect_offs = curr_vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
+                                                fseeko64(curr_f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                                prev_blk = curr_blk;
+                                        }
+                                        fread(buff_ptr, VHD_SECTOR_SZ, 1, curr_f);
+                                }
                         }
                         buff_ptr += VHD_SECTOR_SZ;
+                        curr_f = f;
+                        curr_vhdm = vhdm;
                 }
                 
         }
@@ -639,7 +667,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
         {
                 transfer_sectors = total_sectors - offset;
         }
-        if (vhdm->type == VHD_DYNAMIC)
+        if (vhdm->type != VHD_FIXED)
         {
                 int sbsz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 int prev_blk, curr_blk;
@@ -653,17 +681,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         /* We need to create a data block if it does not yet exist. */
                         if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
-                                /* If the sector to write contains all zeros, hold off on block creation and therefore
-                                   writing to file for this sector. */
-                                if (memcmp(buff_ptr, VHD_ZERO_SECTOR, VHD_SECTOR_SZ) == 0)
-                                {
-                                        buff_ptr += VHD_SECTOR_SZ;
-                                        continue;
-                                }
-                                else
-                                {
-                                        vhd_create_blk(vhdm, f, curr_blk);
-                                }
+                                vhd_create_blk(vhdm, f, curr_blk);
                         }
                         if (curr_blk != prev_blk)
                         {
@@ -674,6 +692,22 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         }
                         fwrite(buff_ptr, VHD_SECTOR_SZ, 1, f);
                         buff_ptr += VHD_SECTOR_SZ;
+                        if (vhdm->type == VHD_DIFF)
+                        {
+                                VHD_SETBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib);
+                        }
+                }
+                if (vhdm->type == VHD_DIFF)
+                {
+                        int start_blk = offset / vhdm->sparse_spb;
+                        int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
+                        int b;
+                        for (b = start_blk; b <= end_blk; b++)
+                        {
+                                off64_t addr = (off64_t)vhdm->sparse_bat_arr[b] * VHD_SECTOR_SZ;
+                                fseeko64(f, addr, SEEK_SET);
+                                fwrite(vhdm->sparse_bitmap_arr[b].bitmap, sizeof vhdm->sparse_bitmap_arr[b].bitmap, 1, f);
+                        }
                 }
         }
         else
