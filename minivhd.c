@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
 #ifdef HAVE_UUID_H
@@ -41,7 +40,7 @@ uint8_t VHD_FULL_SECTOR[VHD_SECTOR_SZ];
 static void vhd_init_global_buffers(void);
 static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
-static uint64_t vhd_get_filesize(FILE* f);
+static off64_t vhd_get_filesize(FILE* f);
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm);
 static void vhd_sparse_head_to_meta(VHDMeta *vhdm);
 static void vhd_new_raw(VHDMeta *vhdm);
@@ -98,14 +97,11 @@ time_t vhd_get_created_time(VHDMeta *vhdm)
         return vhd_time_unix;
 }
 /* Get the size of FILE *f */
-static uint64_t vhd_get_filesize(FILE* f)
+static off64_t vhd_get_filesize(FILE* f)
 {
-        struct _stat64 st;
-        uint64_t filesize = 0;
-        if (fstat64(fileno(f), &st) < 0) {
-                return filesize;
-        }
-        filesize = (uint64_t)st.st_size;
+        off64_t filesize;
+        fseeko64(f, 0, SEEK_END);
+        filesize = ftello64(f);
         return filesize;
 }
 /* Test if a file is a VHD. */
@@ -177,7 +173,7 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
                 vhd_raw_foot_to_meta(vhdm);
                 if (vhdm->type == VHD_DYNAMIC)
                 {
-                        fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
+                        fseeko64(f, (off64_t)vhdm->sparse_header_offset, SEEK_SET);
                         fread(&vhdm->raw_sparse_header, 1, VHD_SPARSE_HEAD_SZ, f);
                         vhd_sparse_head_to_meta(vhdm);
                         if (!vhd_bat_from_file(vhdm, f))
@@ -223,9 +219,9 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
                 uint8_t max_byte = 255U;
                 fseeko64(f, 0, SEEK_SET);
                 fwrite(&vhdm->raw_footer, VHD_FOOTER_SZ, 1, f);
-                fseeko64(f, vhdm->sparse_header_offset, SEEK_SET);
+                fseeko64(f, (off64_t)vhdm->sparse_header_offset, SEEK_SET);
                 fwrite(&vhdm->raw_sparse_header, VHD_SPARSE_HEAD_SZ, 1, f);
-                fseeko64(f, vhdm->sparse_bat_offset, SEEK_SET);
+                fseeko64(f, (off64_t)vhdm->sparse_bat_offset, SEEK_SET);
                 for (s = 0; s < VHD_MAX_BAT_SIZE_BYTES; s++)
                 {
                         fwrite(&max_byte, sizeof max_byte, 1, f);
@@ -329,7 +325,7 @@ static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f)
         for (b = 0; b < vhdm->sparse_max_bat; b++)
         {
                 uint32_t curr_entry;
-                uint64_t file_offset = vhdm->sparse_bat_offset + (b * 4);
+                off64_t file_offset = vhdm->sparse_bat_offset + (b * 4);
                 fseeko64(f, file_offset, SEEK_SET);
                 fread(&curr_entry, 4, 1, f);
                 vhdm->sparse_bat_arr[b] = be32_to_cpu(curr_entry);
@@ -339,7 +335,7 @@ static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f)
 /* Updates the Block Allocation Table in the file with the new offset for a block. */
 static void vhd_update_bat(VHDMeta *vhdm, FILE *f, int blk)
 {
-        uint64_t blk_file_offset = vhdm->sparse_bat_offset + (blk * 4);
+        off64_t blk_file_offset = vhdm->sparse_bat_offset + (blk * 4);
         uint32_t blk_offset = cpu_to_be32(vhdm->sparse_bat_arr[blk]);
         fseeko64(f, blk_file_offset, SEEK_SET);
         fwrite(&blk_offset, 4, 1, f);
@@ -451,7 +447,7 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
         uint8_t ftr[VHD_SECTOR_SZ];
         uint32_t new_blk_offset;
         fseeko64(f, -512, SEEK_END);
-        new_blk_offset = (uint64_t)ftello64(f) / VHD_SECTOR_SZ;
+        new_blk_offset = (off64_t)ftello64(f) / VHD_SECTOR_SZ;
         fread(ftr, 1, 512, f);
         fseeko64(f, -512, SEEK_END);
         /* Let's be sure we are not potentially overwriting a data block for some reason. */
@@ -512,7 +508,7 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                                 {
                                         sib = s % vhdm->sparse_spb;
                                         uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
-                                        fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                        fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                         prev_blk = curr_blk;
                                 }
                                 fread(buff_ptr, VHD_SECTOR_SZ, 1, f);
@@ -524,7 +520,7 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
         else
         {
                 /* Code from PCem */
-                uint64_t addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                off64_t addr = (off64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 fread(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
         }
@@ -573,7 +569,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         {
                                 sib = s % vhdm->sparse_spb;
                                 uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
-                                fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                 prev_blk = curr_blk;
                         }
                         fwrite(buff_ptr, VHD_SECTOR_SZ, 1, f);
@@ -583,7 +579,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
         else
         {
                 /* Code from PCem */
-                uint64_t addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                off64_t addr = (off64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 fwrite(buffer, transfer_sectors * VHD_SECTOR_SZ, 1, f);
         }
@@ -619,7 +615,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
                                 {
                                         sib = s % vhdm->sparse_spb;
                                         uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
-                                        fseeko64(f, (uint64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
+                                        fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                         prev_blk = curr_blk;
                                 }
                                 fwrite(VHD_ZERO_SECTOR, VHD_SECTOR_SZ, 1, f);
@@ -629,7 +625,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
         else
         {
                 int c;
-                uint64_t addr = (uint64_t)offset * VHD_SECTOR_SZ;
+                off64_t addr = (off64_t)offset * VHD_SECTOR_SZ;
                 fseeko64(f, addr, SEEK_SET);
                 for (c = 0; c < transfer_sectors; c++)
                 {
