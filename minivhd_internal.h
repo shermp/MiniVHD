@@ -3,6 +3,13 @@
 
 #include <stdint.h>
 
+/* The following bit array macros adapted from 
+   http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html */
+
+#define VHD_SETBIT(A,k)     ( A[(k/8)] |= (1 << (k%8)) )
+#define VHD_CLEARBIT(A,k)   ( A[(k/8)] &= ~(1 << (k%8)) )
+#define VHD_TESTBIT(A,k)    ( A[(k/8)] & (1 << (k%8)) )
+
 extern uint8_t VFT_CONECTIX_COOKIE[];
 extern uint8_t VFT_CREATOR[];
 extern uint8_t VFT_CREATOR_HOST_OS[];

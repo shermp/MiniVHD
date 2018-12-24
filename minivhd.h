@@ -55,8 +55,14 @@
 #define VHD_MAX_BAT_SIZE_BYTES 261120
 #define VHD_MAX_CYL 65535 /* VHD stores the cylinders as a 16-bit unsigned int */
 #define VHD_MAX_SZ_MB 130559 /* Using max (65535 * 16 * 255) geom  */
+/* Most (if not all) VHD implementations limit the block size to 2MB, we shall do the same, and therefore 
+   the sector bitmap should be 512 bytes. Note, this value is aligned to sector boundary, so smaller block
+   sizes still use a 512 byte sector bitmap. */
+#define VHD_SECT_BM_SIZE 512 
 /* Win 10 appears to add 7 sectors of zero padding between blocks, and before the footer. */
 #define VHD_BLK_PADDING_SECT 7
+#define VHD_MAX_PATH 260 /* Limit filepath lengths to Windows length. Length in characters */
+#define VHD_PAR_LOC_PLAT_CODE_W2RU 0x57327275
 
 typedef enum VHDError
 {
@@ -85,6 +91,12 @@ typedef struct VHDGeom
         uint8_t spt;
 } VHDGeom;
 
+typedef struct VHDSectorBitmap
+{
+        int cached;
+        uint8_t bitmap[VHD_SECT_BM_SIZE];
+} VHDSectorBitmap;
+
 /* All values except those in raw_* structs are in the host endian format.
    There is no need to perform any conversion, MiniVHD does it for you. */
 typedef struct VHDMeta
@@ -98,7 +110,11 @@ typedef struct VHDMeta
         uint32_t sparse_max_bat;
         uint32_t sparse_block_sz;
         uint32_t sparse_spb;
-        uint32_t sparse_sb_sz;
+        VHDSectorBitmap *sparse_bitmap_arr;
+        struct {
+                FILE* f;
+                struct VHDMeta *meta;
+        } parent;
         VHDFooterStruct raw_footer;
         VHDSparseStruct raw_sparse_header;
 } VHDMeta;
@@ -114,7 +130,7 @@ int vhd_file_is_vhd(FILE *f);
    Returns VHD_RET_OK on success. 
    Or VHD_RET_MALLOC_ERROR if there was a memory allocation error.
    Or VHD_RET_NOT_VHD if the provided file was not a VHD image */
-VHDError vhd_read_file(FILE *f, VHDMeta *vhdm);
+VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path);
 
 /* Create a new, empty VHD image of the given size
    f:      Pointer to VHD file

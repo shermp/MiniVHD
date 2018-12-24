@@ -154,7 +154,7 @@ VHDError vhd_check_validity(VHDMeta *vhdm)
                 return status = VHD_VALID;
         }
 }
-VHDError vhd_read_file(FILE *f, VHDMeta *vhdm)
+VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
 {
         vhd_init_global_buffers();
         VHDError ret = VHD_RET_OK;
@@ -259,11 +259,6 @@ static void vhd_sparse_head_to_meta(VHDMeta *vhdm)
         vhdm->sparse_max_bat = be32_to_cpu(vhdm->raw_sparse_header.max_bat_ent);
         vhdm->sparse_block_sz = be32_to_cpu(vhdm->raw_sparse_header.block_sz);
         vhdm->sparse_spb = vhdm->sparse_block_sz / VHD_SECTOR_SZ;
-        vhdm->sparse_sb_sz = vhdm->sparse_spb / 8;
-        if (vhdm->sparse_sb_sz % VHD_SECTOR_SZ != 0)
-        {
-                vhdm->sparse_sb_sz += (vhdm->sparse_sb_sz % VHD_SECTOR_SZ);
-        }
 }
 static void vhd_new_raw(VHDMeta *vhdm)
 {
@@ -453,7 +448,7 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
         /* Let's be sure we are not potentially overwriting a data block for some reason. */
         if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)ftr, 8) == 0)
         {
-                uint32_t sb_sz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
+                uint32_t sb_sz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 uint32_t sect_to_write = sb_sz + vhdm->sparse_spb;
                 int s;
                 for (s = 0; s < sect_to_write; s++)
@@ -488,7 +483,7 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
         }
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
+                int sbsz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 int prev_blk = -1;
                 int curr_blk;               
                 uint32_t s, ls, sib;
@@ -541,7 +536,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
         }
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
+                int sbsz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 int prev_blk, curr_blk;
                 prev_blk = -1;
                 uint32_t s, ls, sib;
@@ -601,7 +596,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
 
         if (vhdm->type == VHD_DYNAMIC)
         {
-                int sbsz = vhdm->sparse_sb_sz / VHD_SECTOR_SZ;
+                int sbsz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 int prev_blk, curr_blk;
                 prev_blk = -1;
                 uint32_t s, ls, sib;
@@ -641,9 +636,37 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
 
 void vhd_close(VHDMeta *vhdm)
 {
-        if (vhdm->sparse_bat_arr)
+        VHDMeta *tmp;
+        int free_node = 0;
+        do 
         {
-                free(vhdm->sparse_bat_arr);
-                vhdm->sparse_bat_arr = NULL;
-        }
+                tmp = vhdm;
+                vhdm = tmp->parent.meta;
+                if (tmp->sparse_bat_arr)
+                {
+                        free(tmp->sparse_bat_arr);
+                        tmp->sparse_bat_arr = NULL;
+                }
+                if (tmp->sparse_bitmap_arr) 
+                {
+                        free(tmp->sparse_bitmap_arr);
+                        tmp->sparse_bitmap_arr = NULL;
+                }
+                if (tmp->parent.f)
+                {
+                        fclose(tmp->parent.f);
+                        tmp->parent.f = NULL;
+                }
+                /* We never free the VHDMeta structure passed to us, as it may
+                   not have been allocated by malloc in the first place. */
+                if (free_node)
+                {
+                        free(tmp);
+                        tmp = NULL;
+                }
+                else
+                {
+                        free_node = 1;
+                }
+        } while(vhdm);
 }
