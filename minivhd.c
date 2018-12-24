@@ -599,6 +599,7 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                 for (s = offset; s <= ls; s++)
                 {
                         curr_blk = s / curr_vhdm->sparse_spb;
+                        sib = s % curr_vhdm->sparse_spb;
                         /* If our file is a differencing VHD, find the appropriate file
                            to read data from */
                         while(curr_vhdm->type == VHD_DIFF)
@@ -631,7 +632,6 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                                 {
                                         if (curr_blk != prev_blk || vhdm->type == VHD_DIFF)
                                         {
-                                                sib = s % curr_vhdm->sparse_spb;
                                                 uint32_t file_sect_offs = curr_vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
                                                 fseeko64(curr_f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                                 prev_blk = curr_blk;
@@ -678,6 +678,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                 for (s = offset; s <= ls; s++)
                 {
                         curr_blk = s / vhdm->sparse_spb;
+                        sib = s % vhdm->sparse_spb;
                         /* We need to create a data block if it does not yet exist. */
                         if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK)
                         {
@@ -685,7 +686,6 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         }
                         if (curr_blk != prev_blk)
                         {
-                                sib = s % vhdm->sparse_spb;
                                 uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
                                 fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                 prev_blk = curr_blk;
