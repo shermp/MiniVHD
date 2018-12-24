@@ -52,6 +52,7 @@ static void vhd_update_bat(VHDMeta *vhdm, FILE *f, int blk);
 static uint32_t vhd_generate_be_checksum(VHDMeta *vhdm, uint32_t type);
 static VHDError vhd_validate_checksum(VHDMeta *vhdm);
 static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num);
+static void vhd_read_sector_bitmap(VHDMeta* vhdm, FILE* f, int blk);
 
 /* A UUID is required, but there are no restrictions on how it needs
    to be generated. */
@@ -218,34 +219,54 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
 {
         vhd_init_global_buffers();
         VHDError ret = VHD_RET_OK;
-        /* If the filesize is too small, we abort early */
-        if (vhd_get_filesize(f) < VHD_FOOTER_SZ)
+        int read_par;
+        do
         {
-                return VHD_RET_NOT_VHD;
-        }
-        fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
-        fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
-        // Check for valid cookie
-        if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)vhdm->raw_footer.cookie, 8) == 0)
-        {
-                /* Don't want a pointer to who knows where... */
-                vhdm->sparse_bat_arr = NULL;
-                vhd_raw_foot_to_meta(vhdm);
-                if (vhdm->type == VHD_DYNAMIC)
+                read_par = 0;
+                /* If the filesize is too small, we abort early */
+                if (vhd_get_filesize(f) < VHD_FOOTER_SZ)
                 {
-                        fseeko64(f, (off64_t)vhdm->sparse_header_offset, SEEK_SET);
-                        fread(&vhdm->raw_sparse_header, 1, VHD_SPARSE_HEAD_SZ, f);
-                        vhd_sparse_head_to_meta(vhdm);
-                        if (!vhd_bat_from_file(vhdm, f))
+                        return VHD_RET_NOT_VHD;
+                }
+                fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
+                fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
+                // Check for valid cookie
+                if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)vhdm->raw_footer.cookie, 8) == 0)
+                {
+                        /* Don't want a pointer to who knows where... */
+                        vhdm->sparse_bat_arr = NULL;
+                        vhd_raw_foot_to_meta(vhdm);
+                        if (vhdm->type == VHD_DYNAMIC || vhdm->type == VHD_DIFF)
                         {
-                                ret = VHD_RET_MALLOC_ERROR;
+                                fseeko64(f, (off64_t)vhdm->sparse_header_offset, SEEK_SET);
+                                fread(&vhdm->raw_sparse_header, 1, VHD_SPARSE_HEAD_SZ, f);
+                                vhd_sparse_head_to_meta(vhdm);
+                                if (!vhd_bat_from_file(vhdm, f))
+                                {
+                                        ret = VHD_RET_MALLOC_ERROR;
+                                }
+                                vhdm->sparse_bitmap_arr = calloc(vhdm->sparse_max_bat, sizeof(VHDSectorBitmap));
+                                if (!vhdm->sparse_bitmap_arr)
+                                {
+                                        ret = VHD_RET_MALLOC_ERROR;
+                                }
+                                if(vhdm->type == VHD_DIFF)
+                                {
+                                        ret = vhd_load_parent(vhdm, f, path);
+                                        if (ret == VHD_RET_OK)
+                                        {
+                                                f = vhdm->parent.f;
+                                                vhdm = vhdm->parent.meta;
+                                                read_par = 1;
+                                        }
+                                }
                         }
                 }
-        }
-        else
-        {
-                ret = VHD_RET_NOT_VHD;
-        }
+                else
+                {
+                        ret = VHD_RET_NOT_VHD;
+                }
+        } while(read_par);
         return ret;
 }
 /* Convenience function to create VHD file by specifiying size in MB */
@@ -513,7 +534,7 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                 int s;
                 for (s = 0; s < sect_to_write; s++)
                 {
-                        if (s < sb_sz)
+                        if (s < sb_sz && vhdm->type != VHD_DIFF)
                         {
                                 fwrite(VHD_FULL_SECTOR, VHD_SECTOR_SZ, 1, f);
                         }
@@ -529,6 +550,30 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                 fwrite(ftr, VHD_FOOTER_SZ, 1, f);
                 vhdm->sparse_bat_arr[blk_num] = new_blk_offset;
                 vhd_update_bat(vhdm, f, blk_num);
+                if (vhdm->type == VHD_DIFF)
+                {
+                        memset(vhdm->sparse_bitmap_arr[blk_num].bitmap, 0, sizeof vhdm->sparse_bitmap_arr[blk_num].bitmap);
+                        vhdm->sparse_bitmap_arr[blk_num].cached = 1;
+                }
+        }
+}
+
+static void vhd_read_sector_bitmap(VHDMeta* vhdm, FILE* f, int blk)
+{
+        if (!vhdm->sparse_bitmap_arr[blk].cached)
+        {
+                if (vhdm->sparse_bat_arr[blk] == VHD_SPARSE_BLK)
+                {
+                        /* Nothing to copy, mark it as cached */
+                        vhdm->sparse_bitmap_arr[blk].cached = 1;
+                }
+                else
+                {
+                        uint64_t bitmap_offset = vhdm->sparse_bat_arr[blk] * (uint64_t)512;
+                        fseeko64(f, bitmap_offset, SEEK_SET);
+                        fread(vhdm->sparse_bitmap_arr[blk].bitmap, VHD_SECT_BM_SIZE, 1, f);
+                        vhdm->sparse_bitmap_arr[blk].cached = 1;
+                }
         }
 }
 
