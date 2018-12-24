@@ -26,6 +26,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #endif
 #include "bswap.h"
 #include "minivhd.h"
+#include "vhdstrenc.h"
+#include "cwalk.h"
 
 uint8_t VFT_CONECTIX_COOKIE[] = {'c', 'o', 'n', 'e', 'c', 't', 'i', 'x'};
 uint8_t VFT_CREATOR[] = {'p', 'c', 'e', 'm'};
@@ -41,6 +43,7 @@ static void vhd_init_global_buffers(void);
 static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
 static off64_t vhd_get_filesize(FILE* f);
+static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepath);
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm);
 static void vhd_sparse_head_to_meta(VHDMeta *vhdm);
 static void vhd_new_raw(VHDMeta *vhdm);
@@ -154,6 +157,63 @@ VHDError vhd_check_validity(VHDMeta *vhdm)
                 return status = VHD_VALID;
         }
 }
+
+static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepath)
+{
+        uint16_t par_filename[257] = {0};
+        uint16_t par_rel_path[VHD_MAX_PATH] = {0};
+        char abs_path[1042] = {0};
+        char u8_rel_path[1042] = {0};
+        char child_dir[1042] = {0};
+        if (strlen(child_filepath) < sizeof child_dir) {
+                size_t dir_len = 0;
+                cwk_path_get_dirname(child_filepath, &dir_len);
+                if (dir_len) {
+                        strncpy(child_dir, child_filepath, dir_len);
+                }
+        }
+        /* Read the parent filename from the metadata */
+        memcpy(par_filename, vhdm->raw_sparse_header.par_utf16_name, 512);
+        /* Try to find a relative path for the parent file */
+        for (int i = 0; i < 8; i++)
+        {
+                if (be32_to_cpu(vhdm->raw_sparse_header.par_loc_entry[i].plat_code) == VHD_PAR_LOC_PLAT_CODE_W2RU)
+                {
+                        uint64_t addr = be64_to_cpu(vhdm->raw_sparse_header.par_loc_entry[i].plat_data_offset);
+                        uint32_t len = be32_to_cpu(vhdm->raw_sparse_header.par_loc_entry[i].plat_data_len);
+                        if (len < sizeof par_rel_path) {
+                                fseeko64(f, addr, SEEK_SET);
+                                fread(par_rel_path, len, 1, f);
+                        }
+                        break;
+                }
+        }
+        if (!par_rel_path[0]) {
+                memcpy(par_rel_path, par_filename, vhd_u16_strlen(par_filename));
+        }
+        /* Now that we have our path, convert to UTF-8 */
+        vhd_utf16_to_utf8(par_rel_path, VHD_U16_LE, u8_rel_path, sizeof u8_rel_path);
+        /* (Hopefully) get the absolute path of the parent VHD */
+        cwk_path_get_absolute(child_dir, u8_rel_path, abs_path, sizeof abs_path);
+#ifdef _WIN32
+        uint16_t w_filemode[3] = {0x0072, 0x0000, 0x0000}; /* "r" */
+        uint16_t w_abs_path[261] = {0};
+        vhd_utf8_to_utf16be(abs_path, w_abs_path, sizeof w_abs_path);
+        vhd_utf16be_to_host(w_abs_path);
+        FILE* par_f = _wfopen(w_abs_path, w_filemode);
+        if (par_f) {
+                vhdm->parent.f = par_f;
+        }
+#else
+        FILE* par_f = fopen(abs_path, "r");
+        if (par_f) {
+                vhdm->parent.f = par_f;
+        }
+#endif
+        vhdm->parent.meta = calloc(1, sizeof(VHDMeta));
+        return VHD_RET_OK;
+}
+
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
 {
         vhd_init_global_buffers();
