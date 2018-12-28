@@ -236,8 +236,8 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
                         /* Don't want a pointer to who knows where... */
                         vhdm->sparse_bat_arr = NULL;
                         vhdm->sparse_bitmap_arr = NULL;
-						      vhdm->parent.f = NULL;
-						      vhdm->parent.meta = NULL;
+			vhdm->parent.f = NULL;
+			vhdm->parent.meta = NULL;
                    
                         vhd_raw_foot_to_meta(vhdm);
                         if (vhdm->type == VHD_DYNAMIC || vhdm->type == VHD_DIFF)
@@ -294,9 +294,9 @@ void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDTyp
         vhdm->sparse_block_sz = VHD_DEF_BLOCK_SZ;
         vhdm->sparse_max_bat = vhdm->curr_size / vhdm->sparse_block_sz;
         vhdm->sparse_bat_arr = NULL;
-		  vhdm->sparse_bitmap_arr = NULL;
-		  vhdm->parent.f = NULL;
-		  vhdm->parent.meta = NULL;
+	vhdm->sparse_bitmap_arr = NULL;
+	vhdm->parent.f = NULL;
+	vhdm->parent.meta = NULL;
    
         if (vhdm->curr_size % vhdm->sparse_block_sz != 0)
         {
