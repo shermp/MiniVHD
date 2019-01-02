@@ -95,6 +95,7 @@ typedef struct VHDGeom
 typedef struct VHDSectorBitmap
 {
         int cached;
+        int write;
         uint8_t bitmap[VHD_SECT_BM_SIZE];
 } VHDSectorBitmap;
 

@@ -568,6 +568,7 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                         memset(vhdm->sparse_bitmap_arr[blk_num].bitmap, 0xFF, sizeof vhdm->sparse_bitmap_arr[blk_num].bitmap);
                 }
                 vhdm->sparse_bitmap_arr[blk_num].cached = 1;
+                vhdm->sparse_bitmap_arr[blk_num].write = 0;
         }
 }
 
@@ -586,6 +587,7 @@ static void vhd_read_sector_bitmap(VHDMeta* vhdm, FILE* f, int blk)
                         fseeko64(f, bitmap_offset, SEEK_SET);
                         fread(vhdm->sparse_bitmap_arr[blk].bitmap, VHD_SECT_BM_SIZE, 1, f);
                         vhdm->sparse_bitmap_arr[blk].cached = 1;
+                        vhdm->sparse_bitmap_arr[blk].write = 0;
                 }
         }
 }
@@ -705,7 +707,13 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         }
                         fwrite(buff_ptr, VHD_SECTOR_SZ, 1, f);
                         buff_ptr += VHD_SECTOR_SZ;
-                        VHD_SETBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib);
+                        /* We only set a bit if it isn't already set. Can lead to performance
+                           improvements for images with all sectors already marked "dirty" */
+                        if (!VHD_TESTBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib))
+                        {
+                                VHD_SETBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib);
+                                vhdm->sparse_bitmap_arr[curr_blk].write = 1;
+                        }
                 }
 
                 int start_blk = offset / vhdm->sparse_spb;
@@ -713,9 +721,13 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                 int b;
                 for (b = start_blk; b <= end_blk; b++)
                 {
-                        off64_t addr = (off64_t)vhdm->sparse_bat_arr[b] * VHD_SECTOR_SZ;
-                        fseeko64(f, addr, SEEK_SET);
-                        fwrite(vhdm->sparse_bitmap_arr[b].bitmap, sizeof vhdm->sparse_bitmap_arr[b].bitmap, 1, f);
+                        if (vhdm->sparse_bitmap_arr[b].write)
+                        {
+                                off64_t addr = (off64_t)vhdm->sparse_bat_arr[b] * VHD_SECTOR_SZ;
+                                fseeko64(f, addr, SEEK_SET);
+                                fwrite(vhdm->sparse_bitmap_arr[b].bitmap, sizeof vhdm->sparse_bitmap_arr[b].bitmap, 1, f);
+                                vhdm->sparse_bitmap_arr[b].write = 0;
+                        }
                 }
         }
         else
