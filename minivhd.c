@@ -743,6 +743,10 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
         }
         return 0;
 }
+
+/* Fill specified sectors with zero bytes.
+   Note, this is potentially very expensive for differencing VHD
+   images, and can lead to the differencing VHD ballooning in size. */
 int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
 {
         int transfer_sectors = nr_sectors;
@@ -753,7 +757,7 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
                 transfer_sectors = total_sectors - offset;
         }
 
-        if (vhdm->type == VHD_DYNAMIC)
+        if (vhdm->type != VHD_FIXED)
         {
                 int sbsz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 int prev_blk, curr_blk;
@@ -763,7 +767,11 @@ int vhd_format_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors)
                 for (s = offset; s <= ls; s++)
                 {
                         curr_blk = s / vhdm->sparse_spb;
-                        if (vhdm->sparse_bat_arr[curr_blk] != VHD_SPARSE_BLK)
+                        if (vhdm->sparse_bat_arr[curr_blk] == VHD_SPARSE_BLK && vhdm->type == VHD_DIFF)
+                        {
+                                vhd_create_blk(vhdm, f, curr_blk);
+                        }
+                        if (vhdm->sparse_bat_arr[curr_blk] != VHD_SPARSE_BLK || vhdm->type == VHD_DIFF)
                         {
                                 if (curr_blk != prev_blk)
                                 {
