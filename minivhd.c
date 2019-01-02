@@ -562,8 +562,12 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
                 if (vhdm->type == VHD_DIFF)
                 {
                         memset(vhdm->sparse_bitmap_arr[blk_num].bitmap, 0, sizeof vhdm->sparse_bitmap_arr[blk_num].bitmap);
-                        vhdm->sparse_bitmap_arr[blk_num].cached = 1;
                 }
+                else 
+                {
+                        memset(vhdm->sparse_bitmap_arr[blk_num].bitmap, 0xFF, sizeof vhdm->sparse_bitmap_arr[blk_num].bitmap);
+                }
+                vhdm->sparse_bitmap_arr[blk_num].cached = 1;
         }
 }
 
@@ -652,7 +656,6 @@ int vhd_read_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *b
                         curr_f = f;
                         curr_vhdm = vhdm;
                 }
-                
         }
         else
         {
@@ -695,29 +698,24 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         }
                         if (curr_blk != prev_blk)
                         {
+                                vhd_read_sector_bitmap(vhdm, f, curr_blk);
                                 uint32_t file_sect_offs = vhdm->sparse_bat_arr[curr_blk] + sbsz + sib;
                                 fseeko64(f, (off64_t)file_sect_offs * VHD_SECTOR_SZ, SEEK_SET);
                                 prev_blk = curr_blk;
                         }
                         fwrite(buff_ptr, VHD_SECTOR_SZ, 1, f);
                         buff_ptr += VHD_SECTOR_SZ;
-                        if (vhdm->type == VHD_DIFF)
-                        {
-                                vhd_read_sector_bitmap(vhdm, f, curr_blk);
-                                VHD_SETBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib);
-                        }
+                        VHD_SETBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib);
                 }
-                if (vhdm->type == VHD_DIFF)
+
+                int start_blk = offset / vhdm->sparse_spb;
+                int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
+                int b;
+                for (b = start_blk; b <= end_blk; b++)
                 {
-                        int start_blk = offset / vhdm->sparse_spb;
-                        int end_blk = (offset + (transfer_sectors - 1)) / vhdm->sparse_spb;
-                        int b;
-                        for (b = start_blk; b <= end_blk; b++)
-                        {
-                                off64_t addr = (off64_t)vhdm->sparse_bat_arr[b] * VHD_SECTOR_SZ;
-                                fseeko64(f, addr, SEEK_SET);
-                                fwrite(vhdm->sparse_bitmap_arr[b].bitmap, sizeof vhdm->sparse_bitmap_arr[b].bitmap, 1, f);
-                        }
+                        off64_t addr = (off64_t)vhdm->sparse_bat_arr[b] * VHD_SECTOR_SZ;
+                        fseeko64(f, addr, SEEK_SET);
+                        fwrite(vhdm->sparse_bitmap_arr[b].bitmap, sizeof vhdm->sparse_bitmap_arr[b].bitmap, 1, f);
                 }
         }
         else
