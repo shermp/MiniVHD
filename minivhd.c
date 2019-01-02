@@ -587,8 +587,8 @@ static void vhd_read_sector_bitmap(VHDMeta* vhdm, FILE* f, int blk)
                         fseeko64(f, bitmap_offset, SEEK_SET);
                         fread(vhdm->sparse_bitmap_arr[blk].bitmap, VHD_SECT_BM_SIZE, 1, f);
                         vhdm->sparse_bitmap_arr[blk].cached = 1;
-                        vhdm->sparse_bitmap_arr[blk].write = 0;
                 }
+                vhdm->sparse_bitmap_arr[blk].write = 0;
         }
 }
 
