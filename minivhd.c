@@ -703,6 +703,7 @@ int vhd_write_sectors(VHDMeta *vhdm, FILE *f, int offset, int nr_sectors, void *
                         buff_ptr += VHD_SECTOR_SZ;
                         if (vhdm->type == VHD_DIFF)
                         {
+                                vhd_read_sector_bitmap(vhdm, f, curr_blk);
                                 VHD_SETBIT(vhdm->sparse_bitmap_arr[curr_blk].bitmap, sib);
                         }
                 }
