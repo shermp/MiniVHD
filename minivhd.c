@@ -199,9 +199,9 @@ static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepa
         free(u8_rel_path);
 #ifdef _WIN32
         uint16_t w_filemode[3] = {0x0072, 0x0062, 0x0000}; /* "rb" */
-        uint16_t *w_abs_path = NULL;
+        char *w_abs_path = NULL;
         vhd_utf_convert(VHD_UTF_16_LE, abs_path, &w_abs_path);
-        FILE* par_f = _wfopen(w_abs_path, w_filemode);
+        FILE* par_f = _wfopen((uint16_t*)w_abs_path, w_filemode);
         if (par_f) {
                 vhdm->parent.f = par_f;
         }

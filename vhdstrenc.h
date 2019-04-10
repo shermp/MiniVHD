@@ -11,7 +11,7 @@ typedef enum {
              opposite encoding from toUTF
    out_str:  Pointer to output string pointer. Encoding shall be determined by toUTF, and is null terminated.
              It is the callers repsponsibility to free the memory allocated by this function. */
-int vhd_utf_convert(VHDUtfType toUTF, void* in_str, void** out_str);
+int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str);
 /* Count the number of "characters" in a null terminated UTF-16 string. Not a true character count, as surrogate
    pairs are counted as two "characters". Appears to be the Windows definition of a character for filepath 
    purposes. */

@@ -8,7 +8,7 @@
 #include <error.h>
 #endif
 
-int vhd_utf_convert(VHDUtfType toUTF, void* in_str, void** out_str) 
+int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str) 
 {
 #ifdef _WIN32
         int out_buff_len = 0;
@@ -20,7 +20,7 @@ int vhd_utf_convert(VHDUtfType toUTF, void* in_str, void** out_str)
                 out_buff_len = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)in_str, -1, NULL, 0);
                 out_type = sizeof(WCHAR);
         }
-        char *out = (char*)(*out_str);
+        char *out = *out_str;
         out = calloc(out_buff_len, out_type);
         if (out == NULL) {
                 return -1;
@@ -37,7 +37,7 @@ int vhd_utf_convert(VHDUtfType toUTF, void* in_str, void** out_str)
         char *in = (char*)in_str;
         size_t in_len = (toUTF == VHD_UTF_8) ? (vhd_u16_strlen(in) * sizeof(uint16_t)) : strlen(in);
         size_t out_len = (toUTF == VHD_UTF_8) ? ((in_len * 2) + 1) : ((in_len * 4) + 2);
-        char *out = (char*)(*out_str);
+        char *out = *out_str;
         out = calloc(out_len, sizeof *out);
         if (out == NULL) {
                 return -1;
