@@ -26,7 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #endif
 #include "bswap.h"
 #include "minivhd.h"
-#include "vhdstrenc.h"
+#include "vhdutil.h"
 #include "cwalk.h"
 
 uint8_t VFT_CONECTIX_COOKIE[] = {'c', 'o', 'n', 'e', 'c', 't', 'i', 'x'};

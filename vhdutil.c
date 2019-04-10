@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include "vhdstrenc.h"
+#include "vhdutil.h"
 #ifdef _WIN32
 #include <windows.h>
 #else
