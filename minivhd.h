@@ -73,6 +73,7 @@ typedef enum VHDError
         VHD_ERR_GEOM_SIZE_MISMATCH,
         VHD_ERR_TYPE_UNSUPPORTED,
         VHD_ERR_BAD_DYN_CHECKSUM,
+        VHD_ERR_UUID_MISMATCH,
         VHD_RET_OK,
         VHD_RET_NOT_VHD,
         VHD_RET_MALLOC_ERROR

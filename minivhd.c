@@ -44,6 +44,7 @@ static void mk_guid(uint8_t *guid);
 static uint32_t vhd_calc_timestamp(void);
 static off64_t vhd_get_filesize(FILE* f);
 static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepath);
+static VHDError vhd_verify_diff_chain(VHDMeta *vhdm, uint8_t **parent_name);
 static void vhd_raw_foot_to_meta(VHDMeta *vhdm);
 static void vhd_sparse_head_to_meta(VHDMeta *vhdm);
 static void vhd_new_raw(VHDMeta *vhdm);
@@ -206,10 +207,31 @@ static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepa
         return VHD_RET_OK;
 }
 
+/* Assuming the VHD chain loaded correctly, we verify the parent/child relationships by
+   comparing UUID's. 
+   The spec say we should also compare parent timestamp with the file
+   modification timestamp. However, Windows diskpart doesn't set the parent timestamp
+   field correctly, so what's the point in bothering? */
+static VHDError vhd_verify_diff_chain(VHDMeta *vhdm, uint8_t **parent_name)
+{
+        while (vhdm->parent.f && vhdm->parent.meta)
+        {
+                int cmp = memcmp(vhdm->raw_sparse_header.par_uuid, vhdm->parent.meta->raw_footer.uuid, sizeof vhdm->raw_sparse_header.par_uuid);
+                if (cmp != 0) {
+                        /* set parent_name variable to point to the par_utf16_name field */
+                        *parent_name = vhdm->raw_sparse_header.par_utf16_name;
+                        return VHD_ERR_UUID_MISMATCH;
+                }
+                vhdm = vhdm->parent.meta;
+        }
+        return VHD_RET_OK;
+} 
+
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
 {
         vhd_init_global_buffers();
         VHDError ret = VHD_RET_OK;
+        VHDMeta *orig_vhdm = vhdm;
         int read_par;
         do
         {
@@ -262,6 +284,11 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
                         ret = VHD_RET_NOT_VHD;
                 }
         } while(read_par);
+        if (orig_vhdm->type == VHD_DIFF)
+        {
+                uint8_t *bad_vhd_name = NULL;
+                ret = vhd_verify_diff_chain(orig_vhdm, &bad_vhd_name);
+        }
         return ret;
 }
 /* Convenience function to create VHD file by specifiying size in MB */
