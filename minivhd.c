@@ -190,7 +190,7 @@ static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepa
                 }
         }
         if (!par_rel_path[0]) {
-                memcpy(par_rel_path, par_filename, vhd_u16_strlen(par_filename));
+                memcpy(par_rel_path, par_filename, vhd_u16_strlen(par_filename) * sizeof par_filename[0]);
         }
         /* Now that we have our path, convert to UTF-8 */
         vhd_utf_convert(VHD_UTF_8, par_rel_path, &u8_rel_path);
