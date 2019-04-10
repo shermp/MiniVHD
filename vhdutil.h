@@ -16,3 +16,5 @@ int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str);
    pairs are counted as two "characters". Appears to be the Windows definition of a character for filepath 
    purposes. */
 size_t vhd_u16_strlen(uint16_t* u16_str);
+/* Cross platform function to open a (potentially) non-ascii filepath */
+FILE* vhd_fopen(char* utf8_path, char* mode);

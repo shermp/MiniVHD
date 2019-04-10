@@ -1,12 +1,14 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include "vhdutil.h"
+#include <error.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <iconv.h>
 #include <error.h>
 #endif
+#include "vhdutil.h"
 
 int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str) 
 {
@@ -56,4 +58,32 @@ size_t vhd_u16_strlen(uint16_t* u16_str) {
                 u16_str += 1;
         }
         return count;
+}
+
+FILE* vhd_fopen(char* utf8_path, char* mode) 
+{
+#ifdef _WIN32
+        errno_t err = 0;
+        char* u16_path = NULL;
+        WCHAR u16_mode[5] = {0};
+        /* Convert mode to UTF-16LE. Thankfully it's ASCII, which make the conversion simple...
+           Note, we're on Windows, so guaranteed to be little endian, therefore, no byte swapping needed. */
+        int mode_len = strlen(mode);
+        if (mode_len > 0 && mode_len < 5) {
+                for (int i = 0; i < mode_len; i++) {
+                        u16_mode[i] = (WCHAR)mode[i];
+                }
+        }
+        /* Convert utf8_path to UTF-16LE */
+        vhd_utf_convert(VHD_UTF_16_LE, utf8_path, &u16_path);
+        FILE* f = _wfopen((LPCWCH)u16_path, u16_mode);
+        if (f == NULL) {_get_errno(&err);}
+        free(u16_path);
+        /* We want to mimic (_w)fopen() behavior */
+        if (err) {_set_errno(err);}
+        return f;
+#else
+        /* Non-Windows OS's speak UTF-8 for fopen() */
+        return fopen(utf8_path, mode);
+#endif
 }
