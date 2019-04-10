@@ -49,7 +49,8 @@ static void vhd_sparse_head_to_meta(VHDMeta *vhdm);
 static void vhd_new_raw(VHDMeta *vhdm);
 static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f);
 static void vhd_update_bat(VHDMeta *vhdm, FILE *f, int blk);
-static uint32_t vhd_generate_be_checksum(VHDMeta *vhdm, uint32_t type);
+static uint32_t vhd_gen_fixed_be_checksum(VHDMeta *vhdm);
+static uint32_t vhd_gen_sparse_be_checksum(VHDMeta *vhdm);
 static VHDError vhd_validate_checksum(VHDMeta *vhdm);
 static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num);
 static void vhd_read_sector_bitmap(VHDMeta* vhdm, FILE* f, int blk);
@@ -370,7 +371,7 @@ static void vhd_new_raw(VHDMeta *vhdm)
         uint8_t uuid[16];
         mk_guid(uuid);
         memcpy(vhdm->raw_footer.uuid, uuid, sizeof(uuid));
-        vhdm->raw_footer.checksum = vhd_generate_be_checksum(vhdm, VHD_FIXED);
+        vhdm->raw_footer.checksum = vhd_gen_fixed_be_checksum(vhdm);
         /* Write to sparse header buffer */
         strncpy((char *)vhdm->raw_sparse_header.cookie, (char *)VHD_CXSPARSE_COOKIE, sizeof(VHD_CXSPARSE_COOKIE));
         vhdm->raw_sparse_header.dat_offset = 0xffffffffffffffff;
@@ -378,7 +379,7 @@ static void vhd_new_raw(VHDMeta *vhdm)
         vhdm->raw_sparse_header.head_vers = cpu_to_be32(0x00010000);
         vhdm->raw_sparse_header.max_bat_ent = cpu_to_be32(vhdm->sparse_max_bat);
         vhdm->raw_sparse_header.block_sz = cpu_to_be32(vhdm->sparse_block_sz);
-        vhdm->raw_sparse_header.checksum = vhd_generate_be_checksum(vhdm, VHD_DYNAMIC);
+        vhdm->raw_sparse_header.checksum = vhd_gen_sparse_be_checksum(vhdm);
 }
 /* Create a dynamic array of the Block Allocation Table as stored in the file. */
 static int vhd_bat_from_file(VHDMeta *vhdm, FILE *f)
@@ -415,36 +416,33 @@ static void vhd_update_bat(VHDMeta *vhdm, FILE *f, int blk)
         fseeko64(f, blk_file_offset, SEEK_SET);
         fwrite(&blk_offset, 4, 1, f);
 }
-/* Calculates the checksum for a footer or header */
-static uint32_t vhd_generate_be_checksum(VHDMeta *vhdm, uint32_t type)
+/* Calculates the checksum for a fixed footer */
+static uint32_t vhd_gen_fixed_be_checksum(VHDMeta *vhdm)
 {
-        uint32_t chk = 0;
-        if (type == VHD_DYNAMIC)
+        uint32_t new_chk = 0;
+        uint32_t orig_chk = vhdm->raw_footer.checksum;
+        vhdm->raw_footer.checksum = 0;
+        uint8_t* vft = (uint8_t*)&vhdm->raw_footer;
+        for (int i = 0; i < VHD_FOOTER_SZ; i++)
         {
-                uint8_t *vhd_ptr = (uint8_t *)&vhdm->raw_sparse_header;
-                int i;
-                for (i = 0; i < VHD_SPARSE_HEAD_SZ; i++)
-                {
-                        if (i < offsetof(VHDSparseStruct, checksum) || i >= offsetof(VHDSparseStruct, par_uuid))
-                        {
-                                chk += vhd_ptr[i];
-                        }
-                }
+                new_chk += vft[i];
         }
-        else
+        vhdm->raw_footer.checksum = orig_chk;
+        return cpu_to_be32(~new_chk);
+}
+/* Calculates the checksum for a sparse header */
+static uint32_t vhd_gen_sparse_be_checksum(VHDMeta *vhdm)
+{
+        uint32_t new_chk = 0;
+        uint32_t orig_chk = vhdm->raw_sparse_header.checksum;
+        vhdm->raw_sparse_header.checksum = 0;
+        uint8_t* vsh = (uint8_t*)&vhdm->raw_sparse_header;
+        for (int i = 0; i < VHD_FOOTER_SZ; i++)
         {
-                uint8_t *vft_ptr = (uint8_t *)&vhdm->raw_footer;
-                int i;
-                for (i = 0; i < VHD_FOOTER_SZ; i++)
-                {
-                        if (i < offsetof(VHDFooterStruct, checksum) || i >= offsetof(VHDFooterStruct, uuid))
-                        {
-                                chk += vft_ptr[i];
-                        }
-                }
+                new_chk += vsh[i];
         }
-        chk = ~chk;
-        return cpu_to_be32(chk);
+        vhdm->raw_sparse_header.checksum = orig_chk;
+        return cpu_to_be32(~new_chk);
 }
 /* Validates the checksums in the VHD file */
 static VHDError vhd_validate_checksum(VHDMeta *vhdm)
@@ -454,7 +452,7 @@ static VHDError vhd_validate_checksum(VHDMeta *vhdm)
         if (vhdm->type == VHD_DYNAMIC)
         {
                 stored_chksum = vhdm->raw_sparse_header.checksum;
-                calc_chksum = vhd_generate_be_checksum(vhdm, VHD_DYNAMIC);
+                calc_chksum = vhd_gen_sparse_be_checksum(vhdm);
                 if (stored_chksum != calc_chksum)
                 {
                         ret = VHD_ERR_BAD_DYN_CHECKSUM;
@@ -462,7 +460,7 @@ static VHDError vhd_validate_checksum(VHDMeta *vhdm)
                 }
         }
         stored_chksum = vhdm->raw_footer.checksum;
-        calc_chksum = vhd_generate_be_checksum(vhdm, VHD_FIXED);
+        calc_chksum = vhd_gen_fixed_be_checksum(vhdm);
         if (stored_chksum != calc_chksum)
         {
                 ret = VHD_WARN_BAD_CHECKSUM;
