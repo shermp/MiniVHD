@@ -164,7 +164,7 @@ static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepa
         uint16_t par_filename[257] = {0};
         uint16_t par_rel_path[VHD_MAX_PATH] = {0};
         char abs_path[1042] = {0};
-        char u8_rel_path[1042] = {0};
+        char *u8_rel_path = NULL;
         char child_dir[1042] = {0};
         if (strlen(child_filepath) < sizeof child_dir) {
                 size_t dir_len = 0;
@@ -193,7 +193,7 @@ static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepa
                 memcpy(par_rel_path, par_filename, vhd_u16_strlen(par_filename));
         }
         /* Now that we have our path, convert to UTF-8 */
-        vhd_utf16_to_utf8(par_rel_path, VHD_U16_LE, u8_rel_path, sizeof u8_rel_path);
+        vhd_utf_convert(VHD_UTF_8, par_rel_path, &u8_rel_path);
         /* (Hopefully) get the absolute path of the parent VHD */
         cwk_path_get_absolute(child_dir, u8_rel_path, abs_path, sizeof abs_path);
 #ifdef _WIN32
