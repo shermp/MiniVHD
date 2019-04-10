@@ -196,15 +196,16 @@ static VHDError vhd_load_parent(VHDMeta* vhdm, FILE* f, const char* child_filepa
         vhd_utf_convert(VHD_UTF_8, par_rel_path, &u8_rel_path);
         /* (Hopefully) get the absolute path of the parent VHD */
         cwk_path_get_absolute(child_dir, u8_rel_path, abs_path, sizeof abs_path);
+        free(u8_rel_path);
 #ifdef _WIN32
         uint16_t w_filemode[3] = {0x0072, 0x0062, 0x0000}; /* "rb" */
-        uint16_t w_abs_path[261] = {0};
-        vhd_utf8_to_utf16be(abs_path, w_abs_path, sizeof w_abs_path);
-        vhd_utf16be_to_host(w_abs_path);
+        uint16_t *w_abs_path = NULL;
+        vhd_utf_convert(VHD_UTF_16_LE, abs_path, &w_abs_path);
         FILE* par_f = _wfopen(w_abs_path, w_filemode);
         if (par_f) {
                 vhdm->parent.f = par_f;
         }
+        free(w_abs_path);
 #else
         FILE* par_f = fopen(abs_path, "rb");
         if (par_f) {
