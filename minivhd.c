@@ -29,10 +29,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "vhdutil.h"
 #include "cwalk.h"
 
-uint8_t VFT_CONECTIX_COOKIE[] = {'c', 'o', 'n', 'e', 'c', 't', 'i', 'x'};
-uint8_t VFT_CREATOR[] = {'p', 'c', 'e', 'm'};
-uint8_t VFT_CREATOR_HOST_OS[] = {'W', 'i', '2', 'k'};
-uint8_t VHD_CXSPARSE_COOKIE[] = {'c', 'x', 's', 'p', 'a', 'r', 's', 'e'};
+const char VFT_CONECTIX_COOKIE[] = "conectix";
+const char VFT_CREATOR[] = "pcem";
+const char VFT_CREATOR_HOST_OS[] = "Wi2k";
+const char VHD_CXSPARSE_COOKIE[] = "cxsparse";
 
 /* Global 'zeroed' and 'full' sector buffers */
 uint8_t VHD_ZERO_SECTOR[VHD_SECTOR_SZ];
@@ -124,7 +124,7 @@ int vhd_file_is_vhd(FILE *f)
         fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
         fread(buffer, 1, VHD_FOOTER_SZ, f);
         // Check for valid cookie
-        if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)buffer, 8) == 0)
+        if (strncmp(VFT_CONECTIX_COOKIE, (char *)buffer, strlen(VFT_CONECTIX_COOKIE)) == 0)
         {
                 valid_vhd = 1;
         }
@@ -244,7 +244,7 @@ VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path)
                 fseeko64(f, -VHD_FOOTER_SZ, SEEK_END);
                 fread(&vhdm->raw_footer, 1, VHD_FOOTER_SZ, f);
                 // Check for valid cookie
-                if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)vhdm->raw_footer.cookie, 8) == 0)
+                if (strncmp(VFT_CONECTIX_COOKIE, (char *)vhdm->raw_footer.cookie, strlen(VFT_CONECTIX_COOKIE)) == 0)
                 {
                         /* Don't want a pointer to who knows where... */
                         vhdm->sparse_bat_arr = NULL;
@@ -374,7 +374,7 @@ static void vhd_new_raw(VHDMeta *vhdm)
         memset(&vhdm->raw_footer, 0, VHD_FOOTER_SZ);
         memset(&vhdm->raw_sparse_header, 0, VHD_SPARSE_HEAD_SZ);
         /* Write to footer buffer. */
-        strncpy((char *)vhdm->raw_footer.cookie, (char *)VFT_CONECTIX_COOKIE, sizeof(VFT_CONECTIX_COOKIE));
+        strncpy((char *)vhdm->raw_footer.cookie, VFT_CONECTIX_COOKIE, strlen(VFT_CONECTIX_COOKIE));
         vhdm->raw_footer.features = cpu_to_be32(0x00000002);
         vhdm->raw_footer.fi_fmt_vers = cpu_to_be32(0x00010000);
         if (vhdm->type == VHD_DYNAMIC)
@@ -386,9 +386,9 @@ static void vhd_new_raw(VHDMeta *vhdm)
                 vhdm->raw_footer.data_offset = 0xffffffffffffffff;
         }
         vhdm->raw_footer.timestamp = cpu_to_be32(vhd_calc_timestamp());
-        strncpy((char *)vhdm->raw_footer.cr_app, (char *)VFT_CREATOR, sizeof(VFT_CREATOR));
+        strncpy((char *)vhdm->raw_footer.cr_app, VFT_CREATOR, strlen(VFT_CREATOR));
         vhdm->raw_footer.cr_vers = cpu_to_be32(0x000e0000);
-        strncpy((char *)vhdm->raw_footer.cr_host_os, (char *)VFT_CREATOR_HOST_OS, sizeof(VFT_CREATOR_HOST_OS));
+        strncpy((char *)vhdm->raw_footer.cr_host_os, VFT_CREATOR_HOST_OS, strlen(VFT_CREATOR_HOST_OS));
         vhdm->raw_footer.orig_sz = cpu_to_be64(vhdm->curr_size);
         vhdm->raw_footer.curr_sz = cpu_to_be64(vhdm->curr_size);
         vhdm->raw_footer.geom.cyl = cpu_to_be16(vhdm->geom.cyl);
@@ -400,7 +400,7 @@ static void vhd_new_raw(VHDMeta *vhdm)
         memcpy(vhdm->raw_footer.uuid, uuid, sizeof(uuid));
         vhdm->raw_footer.checksum = vhd_gen_fixed_be_checksum(vhdm);
         /* Write to sparse header buffer */
-        strncpy((char *)vhdm->raw_sparse_header.cookie, (char *)VHD_CXSPARSE_COOKIE, sizeof(VHD_CXSPARSE_COOKIE));
+        strncpy((char *)vhdm->raw_sparse_header.cookie, VHD_CXSPARSE_COOKIE, strlen(VHD_CXSPARSE_COOKIE));
         vhdm->raw_sparse_header.dat_offset = 0xffffffffffffffff;
         vhdm->raw_sparse_header.table_offset = cpu_to_be64(vhdm->sparse_bat_offset);
         vhdm->raw_sparse_header.head_vers = cpu_to_be32(0x00010000);
@@ -551,7 +551,7 @@ static void vhd_create_blk(VHDMeta *vhdm, FILE *f, int blk_num)
         fread(ftr, 1, 512, f);
         fseeko64(f, -512, SEEK_END);
         /* Let's be sure we are not potentially overwriting a data block for some reason. */
-        if (strncmp((char *)VFT_CONECTIX_COOKIE, (char *)ftr, 8) == 0)
+        if (strncmp(VFT_CONECTIX_COOKIE, (char *)ftr, strlen(VFT_CONECTIX_COOKIE)) == 0)
         {
                 uint32_t sb_sz = VHD_SECT_BM_SIZE / VHD_SECTOR_SZ;
                 uint32_t sect_to_write = sb_sz + vhdm->sparse_spb;

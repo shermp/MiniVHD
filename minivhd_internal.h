@@ -10,11 +10,6 @@
 #define VHD_CLEARBIT(A,k)   ( A[(k/8)] &= ~(0x80 >> (k%8)) )
 #define VHD_TESTBIT(A,k)    ( A[(k/8)] & (0x80 >> (k%8)) )
 
-extern uint8_t VFT_CONECTIX_COOKIE[];
-extern uint8_t VFT_CREATOR[];
-extern uint8_t VFT_CREATOR_HOST_OS[];
-extern uint8_t VHD_CXSPARSE_COOKIE[];
-
 /* Don't align struct members, so we can copy the header 
    and footer directly into the struct from the file.
    
