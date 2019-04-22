@@ -464,7 +464,7 @@ static uint32_t vhd_gen_sparse_be_checksum(VHDMeta *vhdm)
         uint32_t orig_chk = vhdm->raw_sparse_header.checksum;
         vhdm->raw_sparse_header.checksum = 0;
         uint8_t* vsh = (uint8_t*)&vhdm->raw_sparse_header;
-        for (int i = 0; i < VHD_FOOTER_SZ; i++)
+        for (int i = 0; i < VHD_SPARSE_HEAD_SZ; i++)
         {
                 new_chk += vsh[i];
         }
