@@ -63,6 +63,7 @@
 #define VHD_BLK_PADDING_SECT 7
 #define VHD_MAX_PATH 260 /* Limit filepath lengths to Windows length. Length in characters */
 #define VHD_PAR_LOC_PLAT_CODE_W2RU 0x57327275
+#define VHD_PAR_LOC_PLAT_CODE_W2KU 0x57326B75
 
 typedef enum VHDError
 {
@@ -136,20 +137,31 @@ int vhd_file_is_vhd(FILE *f);
 VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path);
 
 /* Create a new, empty VHD image of the given size
-   f:      Pointer to VHD file
-   vhdm:   Pointer to VHDMeta struct
-   sz_mb:  Size of VHD image, in megabytes. Size must be <= VHD_MAX_SZ_MB
-   type:   Type of VHD image (VHD_FIXED or VHD_DYNAMIC) */
-void vhd_create_file_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type);
+   f:              Pointer to VHD file
+   vhdm:            Pointer to VHDMeta struct
+   sz_mb:           Size of VHD image, in megabytes. Size must be <= VHD_MAX_SZ_MB
+   type:            Type of VHD image (VHD_FIXED or VHD_DYNAMIC)
+*/
+void vhd_create_new_vhd_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type);
 
 /* Create a new, empty VHD image with the given geometry.
-   f:      Pointer to VHD file
-   vhdm:   Pointer to VHDMeta struct
-   cyl:    Number of cylinders. Max 65535
-   heads:  Number of heads. Max 16
-   spt:    Sectors per Track. Max 63
-   type:   Type of VHD image (VHD_FIXED or VHD_DYNAMIC) */
-void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type);
+   f:               Pointer to VHD file
+   vhdm:            Pointer to VHDMeta struct
+   cyl:             Number of cylinders. Max 65535
+   heads:           Number of heads. Max 16
+   spt:             Sectors per Track. Max 63
+   type:            Type of VHD image (VHD_FIXED or VHD_DYNAMIC) 
+*/
+void vhd_create_new_vhd(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type);
+
+/* Create a new Differencing VHD based on a parent VHD. The parent may be a VHD of any
+   type, including another differencing VHD image.
+   f:                   Pointer to differencing VHD file
+   vhdm:                Pointer to differencing VHDMeta struct 
+   abs_parent_path:     Absolute path to parent VHD image.
+   abs_child_path:      Absolute path to new differencing VHD image
+*/
+VHDError vhd_create_diff_vhd(FILE *f, VHDMeta *vhdm, char *abs_parent_path, char *abs_child_path);
 
 /* Basic VHD integrity check.
    vhdm:   Pointer to VHDMeta struct

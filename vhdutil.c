@@ -10,8 +10,9 @@
 #endif
 #include "vhdutil.h"
 
-int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str) 
+size_t vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str) 
 {
+        size_t rv = 0;
 #ifdef _WIN32
         int out_buff_len = 0;
         size_t out_type = 0;
@@ -27,10 +28,11 @@ int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str)
                 return -1;
         }
         if (toUTF == VHD_UTF_8) {
-                WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)in_str, -1, (LPSTR)*out_str, out_buff_len, NULL, NULL);
+                out_buff_len = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)in_str, -1, (LPSTR)*out_str, out_buff_len, NULL, NULL);
         } else {
-                MultiByteToWideChar(CP_UTF8, 0, (LPCCH)in_str, -1, (LPWSTR)*out_str, out_buff_len);
+                out_buff_len = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)in_str, -1, (LPWSTR)*out_str, out_buff_len);
         }
+        rv = (size_t)out_buff_len * out_type;
 #else
         iconv_t cd = (toUTF == VHD_UTF_8) ? iconv_open("UTF-8", "UTF-16LE") : iconv_open("UTF-16LE", "UTF-8");
         /* Iconv doesn't have an easy way of performing a 'dry run'. So we allocate a buffer that is sure to be
@@ -38,16 +40,20 @@ int vhd_utf_convert(VHDUtfType toUTF, void* in_str, char** out_str)
         char *in = (char*)in_str;
         size_t in_len = (toUTF == VHD_UTF_8) ? (vhd_u16_strlen(in) * sizeof(uint16_t)) : strlen(in);
         size_t out_len = (toUTF == VHD_UTF_8) ? ((in_len * 2) + 1) : ((in_len * 4) + 2);
+        size_t orig_out_len = out_len;
         *out_str = calloc(out_len, sizeof **out_str);
         if (*out_str == NULL) {
                 return -1;
         }
         size_t res = iconv(cd, &in, &in_len, &*out_str, &out_len);
         if (res == (size_t)-1) {
-                return -1;
+                rv = 0;
+        } else {
+                rv = orig_out_len - out_len;
         }
+        iconv_close(cd);
 #endif
-        return 0;
+        return rv;
 }
 
 size_t vhd_u16_strlen(uint16_t* u16_str) {
@@ -57,6 +63,14 @@ size_t vhd_u16_strlen(uint16_t* u16_str) {
                 u16_str += 1;
         }
         return count;
+}
+
+void vhd_utf16_endian_swap(uint16_t* u16_str) 
+{
+        while (*u16_str) {
+                *u16_str = ((*u16_str & 0xFF) << 8) | ((*u16_str & 0xFF00) >> 8);
+                u16_str += 1;
+        }
 }
 
 FILE* vhd_fopen(char* utf8_path, char* mode) 

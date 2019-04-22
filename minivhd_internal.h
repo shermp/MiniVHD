@@ -65,4 +65,16 @@ typedef struct VHDSparseStruct
 /* Restore default alignment behaviour */
 # pragma pack(pop)
 
+typedef struct VHDDiffStruct
+{
+        uint8_t par_name[512];
+        struct {
+                uint64_t offset;
+                uint32_t path_code;
+                uint16_t *path;
+                uint32_t path_len;
+                uint32_t data_size;
+        } par_loc[2];
+        uint8_t *par_uuid;
+} VHDDiffStruct;
 #endif
