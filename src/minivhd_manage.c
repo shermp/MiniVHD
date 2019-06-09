@@ -6,6 +6,8 @@
 #include "bswap.h"
 #include "minivhd_internal.h"
 #include "minivhd_io.h"
+#include "minivhd_util.h"
+#include "minivhd_struct_rw.h"
 #include "minivhd.h"
 
 static bool mvhd_file_is_vhd(FILE* f);
