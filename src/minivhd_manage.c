@@ -86,6 +86,45 @@ static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
     return vhdm->block;
 }
 
+MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
+    MVHDGeom chs;
+    uint32_t ts = ((uint64_t)size_mb * 1024 * 1024) / MVHD_SECTOR_SIZE;
+    uint32_t spt, heads, cyl, cth;
+    if (ts > 65535 * 16 * 255) {
+        ts = 65535 * 16 * 255;
+    }
+    if (ts >= 65535 * 16 * 63) {
+        ts = 65535 * 16 * 63;
+        spt = 255;
+        heads = 16;
+        cth = ts / spt;
+    } else {
+        spt = 17;
+        cth = ts / spt;
+        heads = (cth + 1023) / 1024;
+        if (heads < 4) {
+            heads = 4;
+        }
+        if (cth >= (heads * 1024) || heads > 16) {
+            spt = 31;
+            heads = 16;
+            cth = ts / spt;
+        }
+        if (cth >= (heads * 1024)) {
+            spt = 63;
+            heads = 16;
+            cth = ts / spt;
+        }
+    }
+    cyl = cth / heads;
+    chs.heads = heads;
+    chs.spt = spt;
+    chs.cyl = cyl;
+
+    *new_size = chs.cyl * chs.heads * chs.spt * MVHD_SECTOR_SIZE;
+    return chs;
+}
+
 MVHDMeta* mvhd_open(const char* path, int* err) {
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
