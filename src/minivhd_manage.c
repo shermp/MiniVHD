@@ -114,5 +114,18 @@ end:
 }
 
 void mvhd_close(MVHDMeta* vhdm) {
+    if (vhdm->parent != NULL) {
+        mvhd_close(vhdm->parent);
+    }
     fclose(vhdm->f);
+    if (vhdm->block != NULL) {
+        for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
+            free(vhdm->block[i].bitmap);
+            vhdm->block[i].bitmap = NULL;
+        }
+        free(vhdm->block);
+        vhdm->block = NULL;
+    }
+    free(vhdm);
+    vhdm = NULL;
 }

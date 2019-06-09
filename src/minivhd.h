@@ -11,7 +11,7 @@ typedef enum MVHDType {
 } MVHDType;
 
 typedef enum MVHDError {
-    MVHD_ERR_MEM = -1,
+    MVHD_ERR_MEM,
     MVHD_ERR_FILE,
     MVHD_ERR_NOT_VHD,
     MVHD_ERR_TYPE,
@@ -22,9 +22,10 @@ typedef enum MVHDError {
 typedef struct MVHDMeta {
     FILE* f;
     char* filename;
+    struct MVHDMeta* parent;
     MVHDFooter footer;
     MVHDSparseHeader sparse;
-    struct MVHDMeta* parent;
+    MVHDBlock* block;
 } MVHDMeta;
 
 MVHDMeta* mvhd_open(const char* path, int* err);
