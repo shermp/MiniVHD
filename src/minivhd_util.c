@@ -1,5 +1,7 @@
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
 #ifdef HAVE_UUID_H
 #include <uuid/uuid.h>
 #endif

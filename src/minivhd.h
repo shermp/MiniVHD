@@ -25,7 +25,8 @@ typedef struct MVHDGeom {
     uint8_t spt;
 } MVHDGeom;
 
-typedef struct MVHDMeta {
+typedef struct MVHDMeta MVHDMeta;
+struct MVHDMeta {
     FILE* f;
     char* filename;
     struct MVHDMeta* parent;
@@ -37,7 +38,7 @@ typedef struct MVHDMeta {
     int (*read_sectors)(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
     int (*write_sectors)(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff);
     int (*format_sectors)(MVHDMeta* vhdm, int offset, int num_sectors);
-} MVHDMeta;
+};
 
 MVHDMeta* mvhd_open(const char* path, int* err);
 MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err);

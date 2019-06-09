@@ -68,7 +68,4 @@ void mvhd_buffer_to_header(MVHDSparseHeader* header, uint8_t* buffer);
 void mvhd_footer_to_buffer(MVHDFooter* footer, uint8_t* buffer);
 void mvhd_header_to_buffer(MVHDSparseHeader* header, uint8_t* buffer);
 void mvhd_generate_uuid(uint8_t *uuid);
-int mvhd_fixed_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
-int mvhd_sparse_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
-int mvhd_diff_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
 #endif

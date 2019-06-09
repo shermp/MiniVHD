@@ -5,6 +5,7 @@
 #include <string.h>
 #include "bswap.h"
 #include "minivhd_internal.h"
+#include "minivhd_io.h"
 #include "minivhd.h"
 
 static bool mvhd_file_is_vhd(FILE* f);
@@ -181,6 +182,7 @@ MVHDMeta* mvhd_open(const char* path, int* err) {
             *err = bat_err;
             goto cleanup_file;
         }
+        mvhd_calc_sparse_values(vhdm);
 
     } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
         *err = MVHD_ERR_TYPE;
