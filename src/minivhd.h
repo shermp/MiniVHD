@@ -32,6 +32,11 @@ typedef struct MVHDMeta {
     MVHDFooter footer;
     MVHDSparseHeader sparse;
     MVHDBlock* block;
+    int sect_per_block;
+    int bm_sect_count;
+    int (*read_sectors)(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
+    int (*write_sectors)(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff);
+    int (*format_sectors)(MVHDMeta* vhdm, int offset, int num_sectors);
 } MVHDMeta;
 
 MVHDMeta* mvhd_open(const char* path, int* err);
