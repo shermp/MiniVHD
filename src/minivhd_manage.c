@@ -97,6 +97,20 @@ static void mvhd_calc_sparse_values(MVHDMeta* vhdm) {
     }
 }
 
+static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
+    switch (vhdm->footer.disk_type) {
+    case MVHD_TYPE_FIXED:
+        vhdm->read_sectors = mvhd_fixed_read;
+        break;
+    case MVHD_TYPE_DYNAMIC:
+        vhdm->read_sectors = mvhd_sparse_read;
+        break;
+    case MVHD_TYPE_DIFF:
+        vhdm->read_sectors = mvhd_diff_read;
+        break;
+    }
+}
+
 MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     MVHDGeom chs;
     uint32_t ts = ((uint64_t)size_mb * 1024 * 1024) / MVHD_SECTOR_SIZE;
@@ -172,6 +186,7 @@ MVHDMeta* mvhd_open(const char* path, int* err) {
         *err = MVHD_ERR_TYPE;
         goto cleanup_file;
     }
+    mvhd_assign_io_funcs(vhdm);
     /* If we've reached this point, we are good to go, so skip the cleanup steps */
     goto end;
 cleanup_file:
