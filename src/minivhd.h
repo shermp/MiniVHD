@@ -40,6 +40,7 @@ struct MVHDMeta {
     int (*format_sectors)(MVHDMeta* vhdm, int offset, int num_sectors);
 };
 
+bool mvhd_file_is_vhd(FILE* f);
 MVHDMeta* mvhd_open(const char* path, int* err);
 MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err);
 MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);

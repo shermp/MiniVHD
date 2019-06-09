@@ -20,17 +20,6 @@ static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm);
 static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err);
 static void mvhd_calc_sparse_values(MVHDMeta* vhdm);
 
-static bool mvhd_file_is_vhd(FILE* f) {
-    if (f) {
-        uint8_t con_str[8];
-        fseeko64(f, -MVHD_FOOTER_SIZE, SEEK_END);
-        fread(con_str, sizeof con_str, 1, f);
-        return mvhd_is_conectix_str(con_str);
-    } else {
-        return false;
-    }
-}
-
 static void mvhd_read_footer(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_FOOTER_SIZE];
     fseeko64(vhdm->f, -MVHD_FOOTER_SIZE, SEEK_END);
@@ -111,6 +100,17 @@ static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
     case MVHD_TYPE_DIFF:
         vhdm->read_sectors = mvhd_diff_read;
         break;
+    }
+}
+
+bool mvhd_file_is_vhd(FILE* f) {
+    if (f) {
+        uint8_t con_str[8];
+        fseeko64(f, -MVHD_FOOTER_SIZE, SEEK_END);
+        fread(con_str, sizeof con_str, 1, f);
+        return mvhd_is_conectix_str(con_str);
+    } else {
+        return false;
     }
 }
 
