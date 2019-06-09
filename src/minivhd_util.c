@@ -1,5 +1,8 @@
 #include <stdbool.h>
 #include <string.h>
+#ifdef HAVE_UUID_H
+#include <uuid/uuid.h>
+#endif
 #include "minivhd_internal.h"
 #include "minivhd.h"
 
@@ -53,4 +56,23 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
 
     *new_size = chs.cyl * chs.heads * chs.spt * MVHD_SECTOR_SIZE;
     return chs;
+}
+
+/* A UUID is required, but there are no restrictions on how it needs
+   to be generated. */
+void mvhd_generate_uuid(uint8_t *uuid)
+{
+#if defined(HAVE_UUID_H)
+    uuid_generate(guid);
+#else
+    int n;
+    srand(time(NULL));
+    for (n = 0; n < 16; n++) {
+        uuid[n] = rand();
+    }
+    uuid[6] &= 0x0F;
+    uuid[6] |= 0x40; /* Type 4 */
+    uuid[8] &= 0x3F;
+    uuid[8] |= 0x80; /* Variant 1 */
+#endif
 }
