@@ -59,6 +59,7 @@ typedef struct MVHDSparseHeader {
 typedef struct MVHDBlock {
     uint8_t* bitmap;
     uint32_t offset;
+    bool bitmap_cached;
 } MVHDBlock;
 
 bool mvhd_is_conectix_str(const void* buffer);

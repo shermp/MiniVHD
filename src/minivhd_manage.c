@@ -83,6 +83,7 @@ static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
     for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
         fread(&vhdm->block[i].offset, sizeof vhdm->block[i].offset, 1, vhdm->f);
         vhdm->block[i].bitmap = NULL;
+        vhdm->block[i].bitmap_cached = false;
     }
     return vhdm->block;
 }
