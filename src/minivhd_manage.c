@@ -15,6 +15,7 @@ static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm);
 static bool mvhd_footer_checksum_valid(MVHDMeta* vhdm);
 static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm);
 static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err);
+static void mvhd_calc_sparse_values(MVHDMeta* vhdm);
 
 static bool mvhd_file_is_vhd(FILE* f) {
     if (f) {
@@ -84,6 +85,15 @@ static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
         vhdm->block[i].bitmap = NULL;
     }
     return vhdm->block;
+}
+
+static void mvhd_calc_sparse_values(MVHDMeta* vhdm) {
+    vhdm->sect_per_block = vhdm->sparse.block_sz / MVHD_SECTOR_SIZE;
+    int bm_bytes = vhdm->sect_per_block / 8;
+    vhdm->bm_sect_count = bm_bytes / MVHD_SECTOR_SIZE;
+    if (bm_bytes % MVHD_SECTOR_SIZE > 0) {
+        vhdm->bm_sect_count++;
+    }
 }
 
 MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
