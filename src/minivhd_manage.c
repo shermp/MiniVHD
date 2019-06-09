@@ -112,3 +112,7 @@ cleanup_vhdm:
 end:
     return vhdm;
 }
+
+void mvhd_close(MVHDMeta* vhdm) {
+    fclose(vhdm->f);
+}
