@@ -53,11 +53,6 @@ typedef struct MVHDSparseHeader
         uint8_t reserved_2[256];
 } MVHDSparseHeader;
 
-const char MVHD_CONECTIX_COOKIE[] = "conectix";
-const char MVHD_CREATOR[] = "pcem";
-const char MVHD_CREATOR_HOST_OS[] = "Wi2k";
-const char MVHD_CXSPARSE_COOKIE[] = "cxsparse";
-
 bool mvhd_is_conectix_str(const void* buffer);
 void mvhd_buffer_to_footer(MVHDFooter* footer, uint8_t* buffer);
 void mvhd_buffer_to_header(MVHDSparseHeader* header, uint8_t* buffer);

@@ -9,4 +9,5 @@ int main(int argc, char* argv[]) {
     char* path = argv[1];
     int err;
     MVHDMeta* vhdm = mvhd_open(path, &err);
+    return 0;
 }

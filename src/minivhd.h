@@ -24,7 +24,7 @@ typedef struct MVHDMeta {
     char* filename;
     MVHDFooter footer;
     MVHDSparseHeader sparse;
-    MVHDMeta* parent;
+    struct MVHDMeta* parent;
 } MVHDMeta;
 
 MVHDMeta* mvhd_open(const char* path, int* err);
