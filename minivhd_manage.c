@@ -39,23 +39,23 @@ static void mvhd_read_sparse_header(MVHDMeta* vhdm) {
 MVHDMeta* mvhd_open(const char* path, int* err) {
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
-        *err = -1;
+        *err = MVHD_ERR_MEM;
         goto end;
     }
     vhdm->f = fopen64(path, "r+");
     if (vhdm->f == NULL) {
-        *err = -2;
+        *err = MVHD_ERR_FILE;
         goto cleanup_vhdm;
     }
     if (!mvhd_file_is_vhd(vhdm->f)) {
-        *err = -3;
+        *err = MVHD_ERR_NOT_VHD;
         goto cleanup_file;
     }
     mvhd_read_footer(vhdm);
     if (vhdm->footer.disk_type == MVHD_TYPE_DIFF || vhdm->footer.disk_type == MVHD_TYPE_DYNAMIC) {
         mvhd_read_sparse_header(vhdm);
     } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
-        *err = -4;
+        *err = MVHD_ERR_TYPE;
         goto cleanup_file;
     }
     /* If we've reached this point, we are good to go, so skip the cleanup steps */

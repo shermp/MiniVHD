@@ -4,12 +4,18 @@
 #include <stdio.h>
 #include "minivhd_internal.h"
 
-typedef enum MVHDType
-{
-        MVHD_TYPE_FIXED = 2,
-        MVHD_TYPE_DYNAMIC = 3,
-        MVHD_TYPE_DIFF = 4
+typedef enum MVHDType {
+    MVHD_TYPE_FIXED = 2,
+    MVHD_TYPE_DYNAMIC = 3,
+    MVHD_TYPE_DIFF = 4
 } MVHDType;
+
+typedef enum MVHDError {
+    MVHD_ERR_MEM = -1,
+    MVHD_ERR_FILE,
+    MVHD_ERR_NOT_VHD,
+    MVHD_ERR_TYPE
+} MVHDError;
 
 typedef struct MVHDMeta {
     FILE* f;
