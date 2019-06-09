@@ -166,6 +166,7 @@ MVHDMeta* mvhd_open(const char* path, int* err) {
             *err = bat_err;
             goto cleanup_file;
         }
+
     } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
         *err = MVHD_ERR_TYPE;
         goto cleanup_file;

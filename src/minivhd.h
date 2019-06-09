@@ -45,7 +45,4 @@ MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
 MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, MVHDGeom geom, int* err);
 void mvhd_close(MVHDMeta* vhdm);
 MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size);
-int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
-int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff);
-int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors);
 #endif

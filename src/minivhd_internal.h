@@ -9,6 +9,8 @@
 #define MVHD_SECTOR_SIZE 512
 #define MVHD_MAX_BLOCK_SIZE 0x00200000
 
+#define MVHD_SPARSE_BLK 0xffffffff
+
 typedef struct MVHDFooter {
     uint8_t cookie[8];
     uint32_t features;
