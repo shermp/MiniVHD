@@ -99,3 +99,14 @@ int mvhd_diff_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) 
     }
     return truncated_sectors;
 }
+
+int mvhd_fixed_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
+    int64_t addr;
+    int transfer_sectors, truncated_sectors;
+    int total_sectors = vhdm->footer.geom.cyl * vhdm->footer.geom.heads * vhdm->footer.geom.spt;
+    mvhd_check_sectors(offset, num_sectors, total_sectors, &transfer_sectors, &truncated_sectors);
+    addr = (int64_t)offset * MVHD_SECTOR_SIZE;
+    fseeko64(vhdm->f, addr, SEEK_SET);
+    fwrite(in_buff, transfer_sectors*MVHD_SECTOR_SIZE, 1, vhdm->f);
+    return truncated_sectors;
+}
