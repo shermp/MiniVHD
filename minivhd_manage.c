@@ -10,6 +10,10 @@
 static bool mvhd_file_is_vhd(FILE* f);
 static void mvhd_read_footer(MVHDMeta* vhdm);
 static void mvhd_read_sparse_header(MVHDMeta* vhdm);
+static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm);
+static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm);
+static bool mvhd_footer_checksum_valid(MVHDMeta* vhdm);
+static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm);
 
 static bool mvhd_file_is_vhd(FILE* f) {
     if (f) {
@@ -36,6 +40,37 @@ static void mvhd_read_sparse_header(MVHDMeta* vhdm) {
     mvhd_buffer_to_header(&vhdm->sparse, buffer);
 }
 
+static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm) {
+    uint32_t new_chk = 0;
+    uint32_t orig_chk = vhdm->footer.checksum;
+    vhdm->footer.checksum = 0;
+    uint8_t* footer_bytes = (uint8_t*)&vhdm->footer;
+    for (size_t i = 0; i < sizeof vhdm->footer; i++) {
+        new_chk += footer_bytes[i];
+    }
+    vhdm->footer.checksum = orig_chk;
+    return ~new_chk;
+}
+static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm) {
+    uint32_t new_chk = 0;
+    uint32_t orig_chk = vhdm->sparse.checksum;
+    vhdm->sparse.checksum = 0;
+    uint8_t* sparse_bytes = (uint8_t*)&vhdm->sparse;
+    for (size_t i = 0; i < sizeof vhdm->sparse; i++) {
+        new_chk = sparse_bytes[i];
+    }
+    vhdm->sparse.checksum = orig_chk;
+    return ~new_chk;
+}
+
+static bool mvhd_footer_checksum_valid(MVHDMeta* vhdm) {
+    return vhdm->footer.checksum == mvhd_gen_footer_checksum(vhdm);
+}
+
+static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm) {
+    return vhdm->sparse.checksum == mvhd_gen_sparse_checksum(vhdm);
+}
+
 MVHDMeta* mvhd_open(const char* path, int* err) {
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
@@ -52,8 +87,16 @@ MVHDMeta* mvhd_open(const char* path, int* err) {
         goto cleanup_file;
     }
     mvhd_read_footer(vhdm);
+    if (!mvhd_footer_checksum_valid(vhdm)) {
+        *err = MVHD_ERR_FOOTER_CHECKSUM;
+        goto cleanup_file;
+    }
     if (vhdm->footer.disk_type == MVHD_TYPE_DIFF || vhdm->footer.disk_type == MVHD_TYPE_DYNAMIC) {
         mvhd_read_sparse_header(vhdm);
+        if (!mvhd_sparse_checksum_valid(vhdm)) {
+            *err = MVHD_ERR_SPARSE_CHECKSUM;
+            goto cleanup_file;
+        }
     } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
         *err = MVHD_ERR_TYPE;
         goto cleanup_file;

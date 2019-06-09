@@ -14,7 +14,9 @@ typedef enum MVHDError {
     MVHD_ERR_MEM = -1,
     MVHD_ERR_FILE,
     MVHD_ERR_NOT_VHD,
-    MVHD_ERR_TYPE
+    MVHD_ERR_TYPE,
+    MVHD_ERR_FOOTER_CHECKSUM,
+    MVHD_ERR_SPARSE_CHECKSUM
 } MVHDError;
 
 typedef struct MVHDMeta {
