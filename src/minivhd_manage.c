@@ -35,7 +35,7 @@ static void mvhd_read_footer(MVHDMeta* vhdm) {
 
 static void mvhd_read_sparse_header(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_SPARSE_SIZE];
-    fseeko64(vhdm->f, -MVHD_SPARSE_SIZE, SEEK_END);
+    fseeko64(vhdm->f, vhdm->footer.data_offset, SEEK_SET);
     fread(buffer, sizeof buffer, 1, vhdm->f);
     mvhd_buffer_to_header(&vhdm->sparse, buffer);
 }
@@ -57,7 +57,7 @@ static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm) {
     vhdm->sparse.checksum = 0;
     uint8_t* sparse_bytes = (uint8_t*)&vhdm->sparse;
     for (size_t i = 0; i < sizeof vhdm->sparse; i++) {
-        new_chk = sparse_bytes[i];
+        new_chk += sparse_bytes[i];
     }
     vhdm->sparse.checksum = orig_chk;
     return ~new_chk;
