@@ -11,7 +11,7 @@ typedef enum MVHDType {
 } MVHDType;
 
 typedef enum MVHDError {
-    MVHD_ERR_MEM,
+    MVHD_ERR_MEM = -128,
     MVHD_ERR_FILE,
     MVHD_ERR_NOT_VHD,
     MVHD_ERR_TYPE,

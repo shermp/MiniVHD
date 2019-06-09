@@ -14,6 +14,7 @@ static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm);
 static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm);
 static bool mvhd_footer_checksum_valid(MVHDMeta* vhdm);
 static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm);
+static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err);
 
 static bool mvhd_file_is_vhd(FILE* f) {
     if (f) {
@@ -71,6 +72,20 @@ static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm) {
     return vhdm->sparse.checksum == mvhd_gen_sparse_checksum(vhdm);
 }
 
+static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
+    vhdm->block = calloc(vhdm->sparse.max_bat_ent, sizeof *vhdm->block);
+    if (vhdm->block == NULL) {
+        *err = MVHD_ERR_MEM;
+        return vhdm->block;
+    }
+    fseeko64(vhdm->f, vhdm->sparse.bat_offset, SEEK_SET);
+    for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
+        fread(&vhdm->block[i].offset, sizeof vhdm->block[i].offset, 1, vhdm->f);
+        vhdm->block[i].bitmap = NULL;
+    }
+    return vhdm->block;
+}
+
 MVHDMeta* mvhd_open(const char* path, int* err) {
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
@@ -95,6 +110,11 @@ MVHDMeta* mvhd_open(const char* path, int* err) {
         mvhd_read_sparse_header(vhdm);
         if (!mvhd_sparse_checksum_valid(vhdm)) {
             *err = MVHD_ERR_SPARSE_CHECKSUM;
+            goto cleanup_file;
+        }
+        int bat_err;
+        if (mvhd_read_bat(vhdm, &bat_err) == NULL) {
+            *err = bat_err;
             goto cleanup_file;
         }
     } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
