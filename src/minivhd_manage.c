@@ -10,7 +10,6 @@
 #include "minivhd_struct_rw.h"
 #include "minivhd.h"
 
-static bool mvhd_file_is_vhd(FILE* f);
 static void mvhd_read_footer(MVHDMeta* vhdm);
 static void mvhd_read_sparse_header(MVHDMeta* vhdm);
 static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm);
