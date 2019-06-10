@@ -92,13 +92,19 @@ static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
     switch (vhdm->footer.disk_type) {
     case MVHD_TYPE_FIXED:
         vhdm->read_sectors = mvhd_fixed_read;
+        vhdm->write_sectors = mvhd_fixed_write;
         break;
     case MVHD_TYPE_DYNAMIC:
         vhdm->read_sectors = mvhd_sparse_read;
+        vhdm->write_sectors = mvhd_sparse_diff_write;
         break;
     case MVHD_TYPE_DIFF:
         vhdm->read_sectors = mvhd_diff_read;
+        vhdm->write_sectors = mvhd_sparse_diff_write;
         break;
+    }
+    if (vhdm->readonly) {
+        vhdm->write_sectors = mvhd_noop_write;
     }
 }
 
@@ -152,17 +158,18 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     return chs;
 }
 
-MVHDMeta* mvhd_open(const char* path, int* err) {
+MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
         *err = MVHD_ERR_MEM;
         goto end;
     }
-    vhdm->f = fopen64(path, "r+");
+    vhdm->f = readonly ? fopen64(path, "r") : fopen64(path, "r+");
     if (vhdm->f == NULL) {
         *err = MVHD_ERR_FILE;
         goto cleanup_vhdm;
     }
+    vhdm->readonly = readonly;
     if (!mvhd_file_is_vhd(vhdm->f)) {
         *err = MVHD_ERR_NOT_VHD;
         goto cleanup_file;

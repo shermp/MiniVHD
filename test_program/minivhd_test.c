@@ -8,7 +8,7 @@ int main(int argc, char* argv[]) {
     }
     char* path = argv[1];
     int err;
-    MVHDMeta* vhdm = mvhd_open(path, &err);
+    MVHDMeta* vhdm = mvhd_open(path, false, &err);
     mvhd_close(vhdm);
     return 0;
 }

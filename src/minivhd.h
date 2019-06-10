@@ -2,6 +2,7 @@
 #define MINIVHD_H
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "minivhd_internal.h"
 
 typedef enum MVHDType {
@@ -28,6 +29,7 @@ typedef struct MVHDGeom {
 typedef struct MVHDMeta MVHDMeta;
 struct MVHDMeta {
     FILE* f;
+    bool readonly;
     char* filename;
     struct MVHDMeta* parent;
     MVHDFooter footer;
@@ -41,7 +43,7 @@ struct MVHDMeta {
 };
 
 bool mvhd_file_is_vhd(FILE* f);
-MVHDMeta* mvhd_open(const char* path, int* err);
+MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
 MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err);
 MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
 MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, MVHDGeom geom, int* err);

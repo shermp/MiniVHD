@@ -210,3 +210,7 @@ int mvhd_sparse_diff_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in
     }
     return truncated_sectors;
 }
+
+int mvhd_noop_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
+    return 0;
+}
