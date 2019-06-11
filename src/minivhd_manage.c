@@ -164,7 +164,7 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
         *err = MVHD_ERR_MEM;
         goto end;
     }
-    vhdm->f = readonly ? fopen64(path, "r") : fopen64(path, "r+");
+    vhdm->f = readonly ? fopen64(path, "rb") : fopen64(path, "rb+");
     if (vhdm->f == NULL) {
         *err = MVHD_ERR_FILE;
         goto cleanup_vhdm;
