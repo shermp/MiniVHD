@@ -116,7 +116,7 @@ int mvhd_sparse_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff
     int s, ls, blk, prev_blk, sib;
     ls = offset + transfer_sectors;
     prev_blk = -1;
-    for (s = offset; s <= ls; s++) {
+    for (s = offset; s < ls; s++) {
         blk = s / vhdm->sect_per_block;
         sib = s % vhdm->sect_per_block;
         if (vhdm->block[blk].offset == MVHD_SPARSE_BLK) {
@@ -124,7 +124,7 @@ int mvhd_sparse_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff
         } else {
             if (blk != prev_blk) {
                 prev_blk = blk;
-                addr = (int64_t)((vhdm->block[blk].offset + vhdm->bm_sect_count + sib) * MVHD_SECTOR_SIZE);
+                addr = (int64_t)(vhdm->block[blk].offset + vhdm->bm_sect_count + sib) * MVHD_SECTOR_SIZE;
                 fseeko64(vhdm->f, addr, SEEK_SET);
             }
             fread(buff, MVHD_SECTOR_SIZE, 1, vhdm->f);
@@ -142,7 +142,7 @@ int mvhd_diff_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) 
     MVHDMeta* curr_vhdm = vhdm;
     int s, ls, blk, sib;
     ls = offset + transfer_sectors;
-    for (s = offset; s <= ls; s++) {
+    for (s = offset; s < ls; s++) {
         blk = s / vhdm->sect_per_block;
         sib = s % vhdm->sect_per_block;
         while (curr_vhdm->footer.disk_type == MVHD_TYPE_DIFF) {
@@ -185,7 +185,7 @@ int mvhd_sparse_diff_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in
     ls = offset + transfer_sectors;
     prev_blk = -1;
     blk_count = 0;
-    for (s = offset; s <= ls; s++) {
+    for (s = offset; s < ls; s++) {
         blk = s / vhdm->sect_per_block;
         sib = s % vhdm->sect_per_block;
         if (vhdm->block[blk].offset == MVHD_SPARSE_BLK) {
@@ -195,7 +195,7 @@ int mvhd_sparse_diff_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in
             blk_count++;
             prev_blk = blk;
             mvhd_read_sect_bitmap(vhdm, blk);
-            addr = (int64_t)((vhdm->block[blk].offset + vhdm->bm_sect_count + sib) * MVHD_SECTOR_SIZE);
+            addr = (int64_t)(vhdm->block[blk].offset + vhdm->bm_sect_count + sib) * MVHD_SECTOR_SIZE;
             fseeko64(vhdm->f, addr, SEEK_SET);
         }
         fwrite(buff, MVHD_SECTOR_SIZE, 1, vhdm->f);
