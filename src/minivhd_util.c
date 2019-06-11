@@ -5,8 +5,8 @@
 #ifdef HAVE_UUID_H
 #include <uuid/uuid.h>
 #endif
+#include "minivhd_internal.h"
 #include "minivhd_util.h"
-#include "minivhd.h"
 
 const char MVHD_CONECTIX_COOKIE[] = "conectix";
 const char MVHD_CREATOR[] = "pcem";
@@ -21,9 +21,7 @@ bool mvhd_is_conectix_str(const void* buffer) {
     }
 }
 
-/* A UUID is required, but there are no restrictions on how it needs
-   to be generated. */
-void mvhd_generate_uuid(uint8_t *uuid)
+void mvhd_generate_uuid(uint8_t* uuid)
 {
 #if defined(HAVE_UUID_H)
     uuid_generate(guid);

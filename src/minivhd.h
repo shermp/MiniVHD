@@ -3,13 +3,7 @@
 
 #include <stdio.h>
 #include <stdbool.h>
-#include "minivhd_internal.h"
-
-typedef enum MVHDType {
-    MVHD_TYPE_FIXED = 2,
-    MVHD_TYPE_DYNAMIC = 3,
-    MVHD_TYPE_DIFF = 4
-} MVHDType;
+#include <stdint.h>
 
 typedef enum MVHDError {
     MVHD_ERR_MEM = -128,
@@ -27,20 +21,6 @@ typedef struct MVHDGeom {
 } MVHDGeom;
 
 typedef struct MVHDMeta MVHDMeta;
-struct MVHDMeta {
-    FILE* f;
-    bool readonly;
-    char* filename;
-    struct MVHDMeta* parent;
-    MVHDFooter footer;
-    MVHDSparseHeader sparse;
-    MVHDBlock* block;
-    int sect_per_block;
-    int bm_sect_count;
-    int (*read_sectors)(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
-    int (*write_sectors)(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff);
-    int (*format_sectors)(MVHDMeta* vhdm, int offset, int num_sectors);
-};
 
 bool mvhd_file_is_vhd(FILE* f);
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);

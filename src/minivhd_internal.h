@@ -2,6 +2,7 @@
 #define MINIVHD_INTERNAL_H
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #define MVHD_FOOTER_SIZE 512
 #define MVHD_SPARSE_SIZE 1024
@@ -10,6 +11,18 @@
 #define MVHD_MAX_BLOCK_SIZE 0x00200000
 
 #define MVHD_SPARSE_BLK 0xffffffff
+
+typedef enum MVHDType {
+    MVHD_TYPE_FIXED = 2,
+    MVHD_TYPE_DYNAMIC = 3,
+    MVHD_TYPE_DIFF = 4
+} MVHDType;
+
+typedef struct MVHDBlock {
+    uint8_t* bitmap;
+    uint32_t offset;
+    bool bitmap_cached;
+} MVHDBlock;
 
 typedef struct MVHDFooter {
     uint8_t cookie[8];
@@ -56,10 +69,20 @@ typedef struct MVHDSparseHeader {
     uint8_t reserved_2[256];
 } MVHDSparseHeader;
 
-typedef struct MVHDBlock {
-    uint8_t* bitmap;
-    uint32_t offset;
-    bool bitmap_cached;
-} MVHDBlock;
+typedef struct MVHDMeta MVHDMeta;
+struct MVHDMeta {
+    FILE* f;
+    bool readonly;
+    char* filename;
+    struct MVHDMeta* parent;
+    MVHDFooter footer;
+    MVHDSparseHeader sparse;
+    MVHDBlock* block;
+    int sect_per_block;
+    int bm_sect_count;
+    int (*read_sectors)(MVHDMeta*, int, int, void*);
+    int (*write_sectors)(MVHDMeta*, int, int, void*);
+    int (*format_sectors)(MVHDMeta*, int, int);
+};
 
 #endif
