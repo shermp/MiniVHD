@@ -225,3 +225,15 @@ void mvhd_close(MVHDMeta* vhdm) {
     free(vhdm);
     vhdm = NULL;
 }
+
+int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
+    return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
+}
+
+int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
+    return vhdm->write_sectors(vhdm, offset, num_sectors, in_buff);
+}
+
+int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors) {
+    return vhdm->format_sectors(vhdm, offset, num_sectors);
+}
