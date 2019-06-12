@@ -20,6 +20,11 @@ static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err);
 static void mvhd_calc_sparse_values(MVHDMeta* vhdm);
 static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err);
 
+/**
+ * \brief Populate data stuctures with content from a VHD footer
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static void mvhd_read_footer(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_FOOTER_SIZE];
     fseeko64(vhdm->f, -MVHD_FOOTER_SIZE, SEEK_END);
@@ -27,6 +32,11 @@ static void mvhd_read_footer(MVHDMeta* vhdm) {
     mvhd_buffer_to_footer(&vhdm->footer, buffer);
 }
 
+/**
+ * \brief Populate data stuctures with content from a VHD sparse header
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static void mvhd_read_sparse_header(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_SPARSE_SIZE];
     fseeko64(vhdm->f, vhdm->footer.data_offset, SEEK_SET);
@@ -34,6 +44,11 @@ static void mvhd_read_sparse_header(MVHDMeta* vhdm) {
     mvhd_buffer_to_header(&vhdm->sparse, buffer);
 }
 
+/**
+ * \brief Generate VHD footer checksum
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm) {
     uint32_t new_chk = 0;
     uint32_t orig_chk = vhdm->footer.checksum;
@@ -45,6 +60,12 @@ static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm) {
     vhdm->footer.checksum = orig_chk;
     return ~new_chk;
 }
+
+/**
+ * \brief Generate VHD sparse header checksum
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm) {
     uint32_t new_chk = 0;
     uint32_t orig_chk = vhdm->sparse.checksum;
@@ -57,14 +78,41 @@ static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm) {
     return ~new_chk;
 }
 
+/**
+ * \brief Validate VHD footer checksum
+ * 
+ * This works by generating a checksum from the footer, and comparing it against the stored checksum.
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static bool mvhd_footer_checksum_valid(MVHDMeta* vhdm) {
     return vhdm->footer.checksum == mvhd_gen_footer_checksum(vhdm);
 }
 
+/**
+ * \brief Validate VHD sparse header checksum
+ * 
+ * This works by generating a checksum from the sparse header, and comparing it against the stored checksum.
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm) {
     return vhdm->sparse.checksum == mvhd_gen_sparse_checksum(vhdm);
 }
 
+/**
+ * \brief Read BAT into MiniVHD data structure
+ * 
+ * The Block Allocation Table (BAT) is the structure in a sparse and differencing VHD which stores 
+ * the 4-byte sector offsets for each data block. This function allocates enough memory to contain
+ * the entire BAT, and then reads the contents of the BAT into the buffer.
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ * \param [out] err this is populated with MVHD_ERR_MEM if the calloc fails
+ * 
+ * \retval -1 if an error occurrs. Check value of err in this case
+ * \retval 0 if the function call succeeds
+ */
 static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
     vhdm->block_offset = calloc(vhdm->sparse.max_bat_ent, sizeof *vhdm->block_offset);
     if (vhdm->block_offset == NULL) {
@@ -79,6 +127,11 @@ static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
     return 0;
 }
 
+/**
+ * \brief Perform a one-time calculation of some sparse VHD values
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static void mvhd_calc_sparse_values(MVHDMeta* vhdm) {
     vhdm->sect_per_block = vhdm->sparse.block_sz / MVHD_SECTOR_SIZE;
     int bm_bytes = vhdm->sect_per_block / 8;
@@ -88,6 +141,19 @@ static void mvhd_calc_sparse_values(MVHDMeta* vhdm) {
     }
 }
 
+/**
+ * \brief Allocate memory for a sector bitmap.
+ * 
+ * Each data block is preceded by a sector bitmap. Each bit indicates whether the corresponding sector
+ * is considered 'clean' or 'dirty' (for sparse VHD images), or whether to read from the parent or current 
+ * image (for differencing images).
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ * \param [out] err this is populated with MVHD_ERR_MEM if the calloc fails
+ * 
+ * \retval -1 if an error occurrs. Check value of err in this case
+ * \retval 0 if the function call succeeds
+ */
 static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err) {
     vhdm->bitmap.curr_bitmap = calloc(vhdm->bitmap.sector_count, MVHD_SECTOR_SIZE);
     if (vhdm->bitmap.curr_bitmap == NULL) {
@@ -98,6 +164,14 @@ static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err) {
     return 0;
 }
 
+/**
+ * \brief Attach the read/write function pointers to read/write functions
+ * 
+ * Depending on the VHD type, different sector reading and writing functions are used. 
+ * The functions are called via function pointers stored in the vhdm struct.
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
 static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
     switch (vhdm->footer.disk_type) {
     case MVHD_TYPE_FIXED:
@@ -118,6 +192,14 @@ static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
     }
 }
 
+/**
+ * \brief A simple test to see if a given file is a VHD
+ * 
+ * \param [in] f file to test
+ * 
+ * \retval true if f is a VHD
+ * \retval false if f is not a VHD
+ */
 bool mvhd_file_is_vhd(FILE* f) {
     if (f) {
         uint8_t con_str[8];
@@ -129,6 +211,23 @@ bool mvhd_file_is_vhd(FILE* f) {
     }
 }
 
+/**
+ * \brief Calculate hard disk geometry from a provided size
+ * 
+ * The VHD format uses Cylinder, Heads, Sectors per Track (CHS) when accessing the disk.
+ * The size of the disk can be determined from C * H * S * sector_size.
+ * 
+ * Note, maximum VHD size (in bytes) is 65535 * 16 * 255 * 512, which is 127GB
+ * 
+ * This function determines the appropriate CHS geometry from a provided size in MB.
+ * The calculations used are those provided in "Appendix: CHS Calculation" from the document 
+ * "Virtual Hard Disk Image Format Specification" provided by Microsoft.
+ * 
+ * \param [in] size_mb the desired VHD image size, in MiB
+ * \param [out] new_size the actual size of the VHD image, as determined by the closest CHS calculation
+ * 
+ * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
+ */
 MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     MVHDGeom chs;
     uint32_t ts = ((uint64_t)size_mb * 1024 * 1024) / MVHD_SECTOR_SIZE;
@@ -168,6 +267,23 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     return chs;
 }
 
+/**
+ * \brief Open a VHD image for reading and/or writing
+ * 
+ * The returned pointer contains all required values and structures (and files) to 
+ * read and write to a VHD file.
+ * 
+ * Remember to call mvhd_close() when you are finished.
+ * 
+ * \param [in] Absolute path to VHD file. Relative path will cause issues when opening
+ * a differencing VHD file
+ * \param [in] readonly set this to true to open the VHD in a read only manner
+ * \param [out] err will be set if the VHD fails to open. Value could be one of 
+ * MVHD_ERR_MEM, MVHD_ERR_FILE, MVHD_ERR_NOT_VHD, MVHD_ERR_FOOTER_CHECKSUM, MVHD_ERR_SPARSE_CHECKSUM, 
+ * MVHD_ERR_TYPE
+ * 
+ * \return MVHDMeta pointer. If NULL, check err.
+ */
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
     int open_err;
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
@@ -229,6 +345,11 @@ end:
     return vhdm;
 }
 
+/**
+ * \brief Safely close a VHD image
+ * 
+ * \param [in] vhdm MiniVHD data structure to close
+ */
 void mvhd_close(MVHDMeta* vhdm) {
     if (vhdm->parent != NULL) {
         mvhd_close(vhdm->parent);
@@ -246,14 +367,49 @@ void mvhd_close(MVHDMeta* vhdm) {
     vhdm = NULL;
 }
 
+/**
+ * \brief Read sectors from VHD file
+ * 
+ * Read num_sectors, beginning at offset from the VHD file into a buffer
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ * \param [in] offset the sector offset from which to start reading from
+ * \param [in] num_sectors the number of sectors to read
+ * \param [out] out_buff the buffer to write sector data to
+ * 
+ * \return the number of sectors that were not read, or zero
+ */
 int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
     return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
 }
 
+/**
+ * \brief Write sectors to VHD file
+ * 
+ * Write num_sectors, beginning at offset from a buffer VHD file into the VHD file
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ * \param [in] offset the sector offset from which to start writing to
+ * \param [in] num_sectors the number of sectors to write
+ * \param [in] in_buffer the buffer to write sector data to
+ * 
+ * \return the number of sectors that were not written, or zero
+ */
 int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
     return vhdm->write_sectors(vhdm, offset, num_sectors, in_buff);
 }
 
+/**
+ * \brief Write zeroed sectors to VHD file
+ * 
+ * Write num_sectors, beginning at offset, of zero data into the VHD file
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ * \param [in] offset the sector offset from which to start writing to
+ * \param [in] num_sectors the number of sectors to write
+ * 
+ * \return the number of sectors that were not written, or zero
+ */
 int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors) {
     return vhdm->format_sectors(vhdm, offset, num_sectors);
 }
