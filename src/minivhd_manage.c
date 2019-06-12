@@ -16,8 +16,9 @@ static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm);
 static uint32_t mvhd_gen_sparse_checksum(MVHDMeta* vhdm);
 static bool mvhd_footer_checksum_valid(MVHDMeta* vhdm);
 static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm);
-static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err);
+static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err);
 static void mvhd_calc_sparse_values(MVHDMeta* vhdm);
+static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err);
 
 static void mvhd_read_footer(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_FOOTER_SIZE];
@@ -64,29 +65,37 @@ static bool mvhd_sparse_checksum_valid(MVHDMeta* vhdm) {
     return vhdm->sparse.checksum == mvhd_gen_sparse_checksum(vhdm);
 }
 
-static MVHDBlock* mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
-    vhdm->block = calloc(vhdm->sparse.max_bat_ent, sizeof *vhdm->block);
-    if (vhdm->block == NULL) {
+static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
+    vhdm->block_offset = calloc(vhdm->sparse.max_bat_ent, sizeof *vhdm->block_offset);
+    if (vhdm->block_offset == NULL) {
         *err = MVHD_ERR_MEM;
-        return vhdm->block;
+        return -1;
     }
     fseeko64(vhdm->f, vhdm->sparse.bat_offset, SEEK_SET);
     for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
-        fread(&vhdm->block[i].offset, sizeof vhdm->block[i].offset, 1, vhdm->f);
-        vhdm->block[i].offset = be32_to_cpu(vhdm->block[i].offset);
-        vhdm->block[i].bitmap = NULL;
-        vhdm->block[i].bitmap_cached = false;
+        fread(&vhdm->block_offset[i], sizeof *vhdm->block_offset, 1, vhdm->f);
+        vhdm->block_offset[i] = be32_to_cpu(vhdm->block_offset[i]);
     }
-    return vhdm->block;
+    return 0;
 }
 
 static void mvhd_calc_sparse_values(MVHDMeta* vhdm) {
     vhdm->sect_per_block = vhdm->sparse.block_sz / MVHD_SECTOR_SIZE;
     int bm_bytes = vhdm->sect_per_block / 8;
-    vhdm->bm_sect_count = bm_bytes / MVHD_SECTOR_SIZE;
+    vhdm->bitmap.sector_count = bm_bytes / MVHD_SECTOR_SIZE;
     if (bm_bytes % MVHD_SECTOR_SIZE > 0) {
-        vhdm->bm_sect_count++;
+        vhdm->bitmap.sector_count++;
     }
+}
+
+static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err) {
+    vhdm->bitmap.curr_bitmap = calloc(vhdm->bitmap.sector_count, MVHD_SECTOR_SIZE);
+    if (vhdm->bitmap.curr_bitmap == NULL) {
+        *err = MVHD_ERR_MEM;
+        return -1;
+    }
+    vhdm->bitmap.curr_block = -1;
+    return 0;
 }
 
 static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
@@ -160,6 +169,7 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
 }
 
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
+    int open_err;
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
         *err = MVHD_ERR_MEM;
@@ -186,20 +196,29 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
             *err = MVHD_ERR_SPARSE_CHECKSUM;
             goto cleanup_file;
         }
-        int bat_err;
-        if (mvhd_read_bat(vhdm, &bat_err) == NULL) {
-            *err = bat_err;
+        if (mvhd_read_bat(vhdm, &open_err) == -1) {
+            *err = open_err;
             goto cleanup_file;
         }
         mvhd_calc_sparse_values(vhdm);
+        if (mvhd_init_sector_bitmap(vhdm, &open_err) == -1) {
+            *err = open_err;
+            goto cleanup_bat;
+        }
 
-    } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
+    } else if (vhdm->footer.disk_type == MVHD_TYPE_FIXED) {
         *err = MVHD_ERR_TYPE;
-        goto cleanup_file;
+        goto cleanup_bitmap;
     }
     mvhd_assign_io_funcs(vhdm);
     /* If we've reached this point, we are good to go, so skip the cleanup steps */
     goto end;
+cleanup_bitmap:
+    free(vhdm->bitmap.curr_bitmap);
+    vhdm->bitmap.curr_bitmap = NULL;
+cleanup_bat:
+    free(vhdm->block_offset);
+    vhdm->block_offset = NULL;
 cleanup_file:
     fclose(vhdm->f);
     vhdm->f = NULL;
@@ -215,13 +234,13 @@ void mvhd_close(MVHDMeta* vhdm) {
         mvhd_close(vhdm->parent);
     }
     fclose(vhdm->f);
-    if (vhdm->block != NULL) {
-        for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
-            free(vhdm->block[i].bitmap);
-            vhdm->block[i].bitmap = NULL;
-        }
-        free(vhdm->block);
-        vhdm->block = NULL;
+    if (vhdm->block_offset != NULL) {
+        free(vhdm->block_offset);
+        vhdm->block_offset = NULL;
+    }
+    if (vhdm->bitmap.curr_bitmap != NULL) {
+        free(vhdm->bitmap.curr_bitmap);
+        vhdm->bitmap.curr_bitmap = NULL;
     }
     free(vhdm);
     vhdm = NULL;

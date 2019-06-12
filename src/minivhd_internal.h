@@ -18,11 +18,11 @@ typedef enum MVHDType {
     MVHD_TYPE_DIFF = 4
 } MVHDType;
 
-typedef struct MVHDBlock {
-    uint8_t* bitmap;
-    uint32_t offset;
-    bool bitmap_cached;
-} MVHDBlock;
+typedef struct MVHDSectorBitmap {
+    uint8_t* curr_bitmap;
+    int sector_count;
+    int curr_block;
+} MVHDSectorBitmap;
 
 typedef struct MVHDFooter {
     uint8_t cookie[8];
@@ -77,9 +77,9 @@ struct MVHDMeta {
     struct MVHDMeta* parent;
     MVHDFooter footer;
     MVHDSparseHeader sparse;
-    MVHDBlock* block;
+    uint32_t* block_offset;
     int sect_per_block;
-    int bm_sect_count;
+    MVHDSectorBitmap bitmap;
     int (*read_sectors)(MVHDMeta*, int, int, void*);
     int (*write_sectors)(MVHDMeta*, int, int, void*);
     int (*format_sectors)(MVHDMeta*, int, int);
