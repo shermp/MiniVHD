@@ -3,10 +3,12 @@
 
 #include <stdint.h>
 
-extern uint8_t VFT_CONECTIX_COOKIE[];
-extern uint8_t VFT_CREATOR[];
-extern uint8_t VFT_CREATOR_HOST_OS[];
-extern uint8_t VHD_CXSPARSE_COOKIE[];
+/* The following bit array macros adapted from 
+   http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html */
+
+#define VHD_SETBIT(A,k)     ( A[(k/8)] |= (0x80 >> (k%8)) )
+#define VHD_CLEARBIT(A,k)   ( A[(k/8)] &= ~(0x80 >> (k%8)) )
+#define VHD_TESTBIT(A,k)    ( A[(k/8)] & (0x80 >> (k%8)) )
 
 /* Don't align struct members, so we can copy the header 
    and footer directly into the struct from the file.
@@ -63,4 +65,16 @@ typedef struct VHDSparseStruct
 /* Restore default alignment behaviour */
 # pragma pack(pop)
 
+typedef struct VHDDiffStruct
+{
+        uint8_t par_name[512];
+        struct {
+                uint64_t offset;
+                uint32_t path_code;
+                uint16_t *path;
+                uint32_t path_len;
+                uint32_t data_size;
+        } par_loc[2];
+        uint8_t *par_uuid;
+} VHDDiffStruct;
 #endif

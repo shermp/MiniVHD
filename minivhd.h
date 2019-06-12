@@ -55,8 +55,15 @@
 #define VHD_MAX_BAT_SIZE_BYTES 261120
 #define VHD_MAX_CYL 65535 /* VHD stores the cylinders as a 16-bit unsigned int */
 #define VHD_MAX_SZ_MB 130559 /* Using max (65535 * 16 * 255) geom  */
+/* Most (if not all) VHD implementations limit the block size to 2MB, we shall do the same, and therefore 
+   the sector bitmap should be 512 bytes. Note, this value is aligned to sector boundary, so smaller block
+   sizes still use a 512 byte sector bitmap. */
+#define VHD_SECT_BM_SIZE 512 
 /* Win 10 appears to add 7 sectors of zero padding between blocks, and before the footer. */
 #define VHD_BLK_PADDING_SECT 7
+#define VHD_MAX_PATH 260 /* Limit filepath lengths to Windows length. Length in characters */
+#define VHD_PAR_LOC_PLAT_CODE_W2RU 0x57327275
+#define VHD_PAR_LOC_PLAT_CODE_W2KU 0x57326B75
 
 typedef enum VHDError
 {
@@ -67,6 +74,7 @@ typedef enum VHDError
         VHD_ERR_GEOM_SIZE_MISMATCH,
         VHD_ERR_TYPE_UNSUPPORTED,
         VHD_ERR_BAD_DYN_CHECKSUM,
+        VHD_ERR_UUID_MISMATCH,
         VHD_RET_OK,
         VHD_RET_NOT_VHD,
         VHD_RET_MALLOC_ERROR
@@ -75,7 +83,8 @@ typedef enum VHDError
 typedef enum VHDType
 {
         VHD_FIXED = 2,
-        VHD_DYNAMIC = 3
+        VHD_DYNAMIC = 3,
+        VHD_DIFF = 4
 } VHDType;
 
 typedef struct VHDGeom
@@ -84,6 +93,13 @@ typedef struct VHDGeom
         uint8_t heads;
         uint8_t spt;
 } VHDGeom;
+
+typedef struct VHDSectorBitmap
+{
+        int cached;
+        int write;
+        uint8_t bitmap[VHD_SECT_BM_SIZE];
+} VHDSectorBitmap;
 
 /* All values except those in raw_* structs are in the host endian format.
    There is no need to perform any conversion, MiniVHD does it for you. */
@@ -98,7 +114,11 @@ typedef struct VHDMeta
         uint32_t sparse_max_bat;
         uint32_t sparse_block_sz;
         uint32_t sparse_spb;
-        uint32_t sparse_sb_sz;
+        VHDSectorBitmap *sparse_bitmap_arr;
+        struct {
+                FILE* f;
+                struct VHDMeta *meta;
+        } parent;
         VHDFooterStruct raw_footer;
         VHDSparseStruct raw_sparse_header;
 } VHDMeta;
@@ -114,23 +134,34 @@ int vhd_file_is_vhd(FILE *f);
    Returns VHD_RET_OK on success. 
    Or VHD_RET_MALLOC_ERROR if there was a memory allocation error.
    Or VHD_RET_NOT_VHD if the provided file was not a VHD image */
-VHDError vhd_read_file(FILE *f, VHDMeta *vhdm);
+VHDError vhd_read_file(FILE *f, VHDMeta *vhdm, const char *path);
 
 /* Create a new, empty VHD image of the given size
-   f:      Pointer to VHD file
-   vhdm:   Pointer to VHDMeta struct
-   sz_mb:  Size of VHD image, in megabytes. Size must be <= VHD_MAX_SZ_MB
-   type:   Type of VHD image (VHD_FIXED or VHD_DYNAMIC) */
-void vhd_create_file_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type);
+   f:              Pointer to VHD file
+   vhdm:            Pointer to VHDMeta struct
+   sz_mb:           Size of VHD image, in megabytes. Size must be <= VHD_MAX_SZ_MB
+   type:            Type of VHD image (VHD_FIXED or VHD_DYNAMIC)
+*/
+void vhd_create_new_vhd_sz(FILE *f, VHDMeta *vhdm, int sz_mb, VHDType type);
 
 /* Create a new, empty VHD image with the given geometry.
-   f:      Pointer to VHD file
-   vhdm:   Pointer to VHDMeta struct
-   cyl:    Number of cylinders. Max 65535
-   heads:  Number of heads. Max 16
-   spt:    Sectors per Track. Max 63
-   type:   Type of VHD image (VHD_FIXED or VHD_DYNAMIC) */
-void vhd_create_file(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type);
+   f:               Pointer to VHD file
+   vhdm:            Pointer to VHDMeta struct
+   cyl:             Number of cylinders. Max 65535
+   heads:           Number of heads. Max 16
+   spt:             Sectors per Track. Max 63
+   type:            Type of VHD image (VHD_FIXED or VHD_DYNAMIC) 
+*/
+void vhd_create_new_vhd(FILE *f, VHDMeta *vhdm, int cyl, int heads, int spt, VHDType type);
+
+/* Create a new Differencing VHD based on a parent VHD. The parent may be a VHD of any
+   type, including another differencing VHD image.
+   f:                   Pointer to differencing VHD file
+   vhdm:                Pointer to differencing VHDMeta struct 
+   abs_parent_path:     Absolute path to parent VHD image.
+   abs_child_path:      Absolute path to new differencing VHD image
+*/
+VHDError vhd_create_diff_vhd(FILE *f, VHDMeta *vhdm, char *abs_parent_path, char *abs_child_path);
 
 /* Basic VHD integrity check.
    vhdm:   Pointer to VHDMeta struct
