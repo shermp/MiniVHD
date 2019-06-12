@@ -13,6 +13,14 @@ const char MVHD_CREATOR[] = "pcem";
 const char MVHD_CREATOR_HOST_OS[] = "Wi2k";
 const char MVHD_CXSPARSE_COOKIE[] = "cxsparse";
 
+/**
+ * \brief Check if provided buffer begins with the string "conectix"
+ * 
+ * \param [in] buffer The buffer to compare. Must be at least 8 bytes in length
+ * 
+ * \return true if the buffer begins with "conectix"
+ * \return false if the buffer does not begin with "conectix"
+ */
 bool mvhd_is_conectix_str(const void* buffer) {
     if (strncmp(buffer, MVHD_CONECTIX_COOKIE, strlen(MVHD_CONECTIX_COOKIE)) == 0) {
         return true;
@@ -21,6 +29,11 @@ bool mvhd_is_conectix_str(const void* buffer) {
     }
 }
 
+/**
+ * \brief Generate a raw 16 byte UUID
+ * 
+ * \param [out] uuid A 16 byte buffer in which the generated UUID will be stored to
+ */
 void mvhd_generate_uuid(uint8_t* uuid)
 {
 #if defined(HAVE_UUID_H)
@@ -38,8 +51,10 @@ void mvhd_generate_uuid(uint8_t* uuid)
 #endif
 }
 
-/* Calculate the current timestamp. */
-uint32_t vhd_calc_timestamp(void)
+/**
+ * \brief Calculate a VHD formatted timestamp from the current time
+ */
+uint32_t vhd_calc_timestamp()
 {
         time_t start_time;
         time_t curr_time;
@@ -49,6 +64,14 @@ uint32_t vhd_calc_timestamp(void)
         vhd_time = difftime(curr_time, start_time);
         return (uint32_t)vhd_time;
 }
+
+/**
+ * \brief Return the created time from a VHD image
+ * 
+ * \param [in] vhdm Pointer to the MiniVHD metadata structure
+ * 
+ * \return The created time, as a Unix timestamp
+ */
 time_t vhd_get_created_time(MVHDMeta *vhdm)
 {
         time_t vhd_time = (time_t)vhdm->footer.timestamp;
