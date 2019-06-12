@@ -1,3 +1,8 @@
+/**
+ * \file
+ * \brief Header and footer serialize/deserialize functions
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>

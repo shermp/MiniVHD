@@ -1,3 +1,8 @@
+/**
+ * \file
+ * \brief Utility functions
+ */
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>

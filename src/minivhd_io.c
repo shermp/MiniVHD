@@ -1,3 +1,8 @@
+/**
+ * \file
+ * \brief Sector reading and writing implementations
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include "bswap.h"

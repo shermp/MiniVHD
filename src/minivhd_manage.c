@@ -1,3 +1,8 @@
+/**
+ * \file
+ * \brief VHD management functions (open, close, read write etc)
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
