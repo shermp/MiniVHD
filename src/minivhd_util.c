@@ -3,6 +3,7 @@
  * \brief Utility functions
  */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -99,9 +100,23 @@ FILE* mvhd_fopen(const char* path, const char* mode, int* err) {
     int mode_res = UTF8ToUTF16LE((unsigned char*)mode_str, &new_mode_len, (const unsigned char*)mode, &mode_len);
     if (path_res > 0 && mode_res > 0) {
         f = _wfopen(new_path, mode_str);
+        if (f == NULL) {
+            mvhd_errno = errno;
+            *err = MVHD_ERR_FILE;
+        }
+    } else {
+        if (path_res == -1 || mode_res == -1) {
+            *err = MVHD_ERR_UTF_SIZE;
+        } else if (path_res == -2 || mode_res == -2) {
+            *err = MVHD_ERR_UTF_TRANSCODING_FAILED;
+        }
     }
 #else
     f = fopen(path, mode);
+    if (f == NULL) {
+        mvhd_errno = errno;
+        *err = MVHD_ERR_FILE;
+    }
 #endif
     return f;
 }

@@ -83,6 +83,7 @@ struct MVHDMeta {
     int (*read_sectors)(MVHDMeta*, int, int, void*);
     int (*write_sectors)(MVHDMeta*, int, int, void*);
     int (*format_sectors)(MVHDMeta*, int, int);
+    int _file_errno;
 };
 
 #endif

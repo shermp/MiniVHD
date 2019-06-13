@@ -15,6 +15,8 @@
 #include "minivhd_struct_rw.h"
 #include "minivhd.h"
 
+int mvhd_errno = 0;
+
 static void mvhd_read_footer(MVHDMeta* vhdm);
 static void mvhd_read_sparse_header(MVHDMeta* vhdm);
 static uint32_t mvhd_gen_footer_checksum(MVHDMeta* vhdm);
