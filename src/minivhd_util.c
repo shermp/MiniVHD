@@ -5,11 +5,13 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
 #ifdef HAVE_UUID_H
 #include <uuid/uuid.h>
 #endif
+#include "libxml2_encoding.h"
 #include "minivhd_internal.h"
 #include "minivhd_util.h"
 
@@ -82,4 +84,24 @@ time_t vhd_get_created_time(MVHDMeta *vhdm)
         time_t vhd_time = (time_t)vhdm->footer.timestamp;
         time_t vhd_time_unix = MVHD_START_TS + vhd_time;
         return vhd_time_unix;
+}
+
+FILE* mvhd_fopen(const char* path, const char* mode, int* err) {
+    FILE* f = NULL;
+#ifdef _WIN32
+    size_t path_len = strlen(path);
+    size_t mode_len = strlen(mode);
+    mvhd_utf16 new_path[260] = {0};
+    int new_path_len = (sizeof new_path) - 2;
+    mvhd_utf16 mode_str[5] = {0};
+    int new_mode_len = (sizeof mode_str) - 2;
+    int path_res = UTF8ToUTF16LE((unsigned char*)new_path, &new_path_len, (const unsigned char*)path, &path_len);
+    int mode_res = UTF8ToUTF16LE((unsigned char*)mode_str, &new_mode_len, (const unsigned char*)mode, &mode_len);
+    if (path_res > 0 && mode_res > 0) {
+        f = _wfopen(new_path, mode_str);
+    }
+#else
+    f = fopen(path, mode);
+#endif
+    return f;
 }
