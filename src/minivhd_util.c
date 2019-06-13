@@ -87,6 +87,21 @@ time_t vhd_get_created_time(MVHDMeta *vhdm)
         return vhd_time_unix;
 }
 
+/**
+ * \brief Cross platform, unicode filepath opening
+ * 
+ * This function accounts for the fact that fopen() handles file paths differently compared to other 
+ * operating systems. Windows version of fopen() will not handle multi byte encoded text like UTF-8. 
+ * 
+ * Unicode filepath support on Windows requires using the _wfopen() function, which expects UTF-16LE 
+ * encoded path and modestring.
+ * 
+ * \param [in] path The filepath to open as a UTF-8 string
+ * \param [in] mode The mode string to use (eg: "rb+"")
+ * \param [out] err The error value, if an error occurrs
+ * 
+ * \return a FILE pointer if successful, NULL otherwise. If NULL, check the value of err
+ */
 FILE* mvhd_fopen(const char* path, const char* mode, int* err) {
     FILE* f = NULL;
 #ifdef _WIN32
