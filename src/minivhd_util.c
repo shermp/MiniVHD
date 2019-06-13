@@ -59,7 +59,7 @@ void mvhd_generate_uuid(uint8_t* uuid)
 /**
  * \brief Calculate a VHD formatted timestamp from the current time
  */
-uint32_t vhd_calc_timestamp()
+uint32_t vhd_calc_timestamp(void)
 {
         time_t start_time;
         time_t curr_time;
