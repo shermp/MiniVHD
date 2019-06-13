@@ -96,8 +96,8 @@ FILE* mvhd_fopen(const char* path, const char* mode, int* err) {
     int new_path_len = (sizeof new_path) - 2;
     mvhd_utf16 mode_str[5] = {0};
     int new_mode_len = (sizeof mode_str) - 2;
-    int path_res = UTF8ToUTF16LE((unsigned char*)new_path, &new_path_len, (const unsigned char*)path, &path_len);
-    int mode_res = UTF8ToUTF16LE((unsigned char*)mode_str, &new_mode_len, (const unsigned char*)mode, &mode_len);
+    int path_res = UTF8ToUTF16LE((unsigned char*)new_path, &new_path_len, (const unsigned char*)path, (int*)&path_len);
+    int mode_res = UTF8ToUTF16LE((unsigned char*)mode_str, &new_mode_len, (const unsigned char*)mode, (int*)&mode_len);
     if (path_res > 0 && mode_res > 0) {
         f = _wfopen(new_path, mode_str);
         if (f == NULL) {
