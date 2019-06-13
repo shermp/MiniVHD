@@ -288,6 +288,7 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
  * \param [out] err will be set if the VHD fails to open. Value could be one of 
  * MVHD_ERR_MEM, MVHD_ERR_FILE, MVHD_ERR_NOT_VHD, MVHD_ERR_FOOTER_CHECKSUM, MVHD_ERR_SPARSE_CHECKSUM, 
  * MVHD_ERR_TYPE
+ * If MVHD_ERR_FILE is set, mvhd_errno will be set to the appropriate system errno value
  * 
  * \return MVHDMeta pointer. If NULL, check err.
  */
@@ -298,9 +299,9 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
         *err = MVHD_ERR_MEM;
         goto end;
     }
-    vhdm->f = readonly ? fopen64(path, "rb") : fopen64(path, "rb+");
+    vhdm->f = readonly ? mvhd_fopen(path, "rb", err) : mvhd_fopen(path, "rb+", err);
     if (vhdm->f == NULL) {
-        *err = MVHD_ERR_FILE;
+        /* note, mvhd_fopen sets err for us */
         goto cleanup_vhdm;
     }
     vhdm->readonly = readonly;
