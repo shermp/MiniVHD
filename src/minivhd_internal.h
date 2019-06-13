@@ -82,7 +82,10 @@ struct MVHDMeta {
     MVHDSectorBitmap bitmap;
     int (*read_sectors)(MVHDMeta*, int, int, void*);
     int (*write_sectors)(MVHDMeta*, int, int, void*);
-    int (*format_sectors)(MVHDMeta*, int, int);
+    struct {
+        uint8_t* zero_data;
+        int sector_count;
+    } format_buffer;
 };
 
 #endif

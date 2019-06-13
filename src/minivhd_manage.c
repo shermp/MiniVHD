@@ -335,8 +335,13 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
         goto cleanup_bitmap;
     }
     mvhd_assign_io_funcs(vhdm);
+    vhdm->format_buffer.zero_data = calloc(64, MVHD_SECTOR_SIZE);
+    vhdm->format_buffer.sector_count = 64;
     /* If we've reached this point, we are good to go, so skip the cleanup steps */
     goto end;
+cleanup_format_buff:
+    free(vhdm->format_buffer.zero_data);
+    vhdm->format_buffer.zero_data = NULL;
 cleanup_bitmap:
     free(vhdm->bitmap.curr_bitmap);
     vhdm->bitmap.curr_bitmap = NULL;
@@ -370,6 +375,10 @@ void mvhd_close(MVHDMeta* vhdm) {
     if (vhdm->bitmap.curr_bitmap != NULL) {
         free(vhdm->bitmap.curr_bitmap);
         vhdm->bitmap.curr_bitmap = NULL;
+    }
+    if (vhdm->format_buffer.zero_data != NULL) {
+        free(vhdm->format_buffer.zero_data);
+        vhdm->format_buffer.zero_data = NULL;
     }
     free(vhdm);
     vhdm = NULL;
@@ -410,7 +419,9 @@ int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buf
 /**
  * \brief Write zeroed sectors to VHD file
  * 
- * Write num_sectors, beginning at offset, of zero data into the VHD file
+ * Write num_sectors, beginning at offset, of zero data into the VHD file. 
+ * We reuse the existing write functions, with a preallocated zero buffer as 
+ * our source buffer.
  * 
  * \param [in] vhdm MiniVHD data structure
  * \param [in] offset the sector offset from which to start writing to
@@ -419,5 +430,11 @@ int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buf
  * \return the number of sectors that were not written, or zero
  */
 int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors) {
-    return vhdm->format_sectors(vhdm, offset, num_sectors);
+    int num_full = num_sectors / vhdm->format_buffer.sector_count;
+    int remain = num_sectors % vhdm->format_buffer.sector_count;
+    for (int i = 0; i < num_full; i++) {
+        vhdm->write_sectors(vhdm, offset, vhdm->format_buffer.sector_count, vhdm->format_buffer.zero_data);
+    }
+    vhdm->write_sectors(vhdm, offset, remain, vhdm->format_buffer.zero_data);
+    return 0;
 }
