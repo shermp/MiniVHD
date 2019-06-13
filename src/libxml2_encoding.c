@@ -26,8 +26,7 @@
 static int xmlLittleEndian = 1;
 
 /* Note: extracted from original 'void xmlInitCharEncodingHandlers(void)' function */
-static void 
-xmlInit() 
+void xmlEncodingInit(void) 
 {
     unsigned short int tst = 0x1234;
     unsigned char *ptr = (unsigned char *) &tst;
@@ -53,8 +52,7 @@ xmlInit()
  *     The value of *inlen after return is the number of octets consumed
  *     if the return value is positive, else unpredictable.
  */
-static int
-UTF16LEToUTF8(unsigned char* out, int *outlen,
+int UTF16LEToUTF8(unsigned char* out, int *outlen,
             const unsigned char* inb, int *inlenb)
 {
     unsigned char* outstart = out;
@@ -137,8 +135,7 @@ UTF16LEToUTF8(unsigned char* out, int *outlen,
  * Returns the number of bytes written, or -1 if lack of space, or -2
  *     if the transcoding failed.
  */
-static int
-UTF8ToUTF16LE(unsigned char* outb, int *outlen,
+int UTF8ToUTF16LE(unsigned char* outb, int *outlen,
             const unsigned char* in, int *inlen)
 {
     unsigned short* out = (unsigned short*) outb;
@@ -250,8 +247,7 @@ UTF8ToUTF16LE(unsigned char* outb, int *outlen,
  * The value of *inlen after return is the number of octets consumed
  *     if the return value is positive, else unpredictable.
  */
-static int
-UTF16BEToUTF8(unsigned char* out, int *outlen,
+int UTF16BEToUTF8(unsigned char* out, int *outlen,
             const unsigned char* inb, int *inlenb)
 {
     unsigned char* outstart = out;
@@ -338,8 +334,7 @@ UTF16BEToUTF8(unsigned char* out, int *outlen,
  * Returns the number of byte written, or -1 by lack of space, or -2
  *     if the transcoding failed.
  */
-static int
-UTF8ToUTF16BE(unsigned char* outb, int *outlen,
+int UTF8ToUTF16BE(unsigned char* outb, int *outlen,
             const unsigned char* in, int *inlen)
 {
     unsigned short* out = (unsigned short*) outb;
