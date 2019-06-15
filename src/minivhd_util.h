@@ -11,4 +11,5 @@ void mvhd_generate_uuid(uint8_t *uuid);
 uint32_t vhd_calc_timestamp(void);
 time_t vhd_get_created_time(MVHDMeta *vhdm);
 FILE* mvhd_fopen(const char* path, const char* mode, int* err);
+void mvhd_set_encoding_err(int encoding_retval, int* err);
 #endif

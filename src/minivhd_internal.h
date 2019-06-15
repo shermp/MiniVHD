@@ -11,6 +11,15 @@
 #define MVHD_MAX_BLOCK_SIZE 0x00200000
 
 #define MVHD_SPARSE_BLK 0xffffffff
+/* For simplicity, we don't handle paths longer than this 
+ * Note, this is the max path in characters, as that is what
+ * Windows uses
+ */
+#define MVHD_MAX_PATH_CHARS 260
+#define MVHD_MAX_PATH_BYTES 1040
+
+#define MVHD_DIF_LOC_W2RU 0x57327275
+#define MVHD_DIF_LOC_W2KU 0x57326B75
 
 typedef enum MVHDType {
     MVHD_TYPE_FIXED = 2,
@@ -73,7 +82,7 @@ typedef struct MVHDMeta MVHDMeta;
 struct MVHDMeta {
     FILE* f;
     bool readonly;
-    char* filename;
+    char filename[MVHD_MAX_PATH_BYTES];
     struct MVHDMeta* parent;
     MVHDFooter footer;
     MVHDSparseHeader sparse;

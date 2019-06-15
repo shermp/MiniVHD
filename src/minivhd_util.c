@@ -135,3 +135,11 @@ FILE* mvhd_fopen(const char* path, const char* mode, int* err) {
 #endif
     return f;
 }
+
+void mvhd_set_encoding_err(int encoding_retval, int* err) {
+    if (encoding_retval == -1) {
+        *err = MVHD_ERR_UTF_SIZE;
+    } else if (encoding_retval == -2) {
+        *err = MVHD_ERR_UTF_TRANSCODING_FAILED;
+    }
+}

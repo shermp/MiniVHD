@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include "bswap.h"
+#include "cwalk.h"
+#include "libxml2_encoding.h"
 #include "minivhd_internal.h"
 #include "minivhd_io.h"
 #include "minivhd_util.h"
@@ -16,6 +18,15 @@
 #include "minivhd.h"
 
 int mvhd_errno = 0;
+static char tmp_open_path[MVHD_MAX_PATH_BYTES] = {0};
+struct MVHDPaths {
+    char dir_path[MVHD_MAX_PATH_BYTES];
+    char file_name[MVHD_MAX_PATH_BYTES];
+    char w2ku_path[MVHD_MAX_PATH_BYTES];
+    char w2ru_path[MVHD_MAX_PATH_BYTES];
+    char joined_path[MVHD_MAX_PATH_BYTES];
+    uint16_t tmp_src_path[MVHD_MAX_PATH_CHARS];
+};
 
 static void mvhd_read_footer(MVHDMeta* vhdm);
 static void mvhd_read_sparse_header(MVHDMeta* vhdm);
@@ -172,6 +183,148 @@ static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err) {
 }
 
 /**
+ * \brief Check if the path for a given platform code exists
+ * 
+ * From the available paths, both relative and absolute, construct a full path 
+ * and attempt to open a file at that path.
+ * 
+ * Note, this function makes no attempt to verify that the path is the correct 
+ * VHD image, or even a VHD image at all.
+ * 
+ * \param [in] paths a struct containing all available paths to work with
+ * \param [in] the platform code to try and obtain a path for. Setting this to zero 
+ * will try using the directory of the child image
+ * 
+ * \retval true if a file is found
+ * \retval false if a file is not found
+ */
+static bool mvhd_parent_path_exists(struct MVHDPaths* paths, uint32_t plat_code) {
+    memset(paths->joined_path, 0, sizeof paths->joined_path);
+    FILE* f;
+    int cwk_ret, ferr;
+    enum cwk_path_style style = cwk_path_guess_style((const char*)paths->dir_path);
+    cwk_path_set_style(style);
+    cwk_ret = 1;
+    if (plat_code == MVHD_DIF_LOC_W2RU && *paths->w2ru_path) {
+        cwk_ret = cwk_path_join((const char*)paths->dir_path, (const char*)paths->w2ru_path, paths->joined_path, sizeof paths->joined_path);
+    } else if (plat_code == MVHD_DIF_LOC_W2KU && *paths->w2ku_path) {
+        strncpy(paths->joined_path, (const char*)paths->w2ku_path, sizeof paths->joined_path);
+        cwk_ret = 0;
+    } else if (plat_code == 0) {
+        cwk_ret = cwk_path_join((const char*)paths->dir_path, (const char*)paths->file_name, paths->joined_path, sizeof paths->joined_path);
+    }
+    if (cwk_ret > MVHD_MAX_PATH_BYTES) {
+        return false;
+    }
+    f = mvhd_fopen((const char*)paths->joined_path, "rb", &ferr);
+    if (f != NULL) {
+        /* We found a file at the requested path! */
+        strncpy(tmp_open_path, paths->joined_path, sizeof tmp_open_path);
+        fclose(f);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+/**
+ * \brief attempt to obtain a file path to a file that may be a valid VHD image
+ * 
+ * Differential VHD images store both a UTF-16BE file name (or path), and up to 
+ * eight "parent locator" entries. Using this information, this function tries to 
+ * find a parent image.
+ * 
+ * This function does not verify if the path returned is a valid parent image.
+ * 
+ * \param [in] vhdm current MiniVHD data structure
+ * \param [out] err any errors that may occurr. Check this if NULL is returned
+ * 
+ * \return a pointer to the global string `tmp_open_path`, or NULL if a path could 
+ * not be found, or some error occurred
+ */
+static char* mvhd_get_diff_parent_path(MVHDMeta* vhdm, int* err) {
+    int utf_outlen, utf_inlen, utf_ret;
+    char* par_fp = NULL;
+    /* We can't resolve relative paths if we don't have an absolute 
+       path to work with */
+    if (!cwk_path_is_absolute((const char*)vhdm->filename)) {
+        *err = MVHD_ERR_PATH_REL;
+        goto end;
+    }
+    struct MVHDPaths* paths = calloc(1, sizeof *paths);
+    if (paths == NULL) {
+        *err = MVHD_ERR_MEM;
+        goto end;
+    }
+    size_t dirlen;
+    cwk_path_get_dirname((const char*)vhdm->filename, &dirlen);
+    if (dirlen >= sizeof paths->dir_path) {
+        *err = MVHD_ERR_PATH_LEN;
+        goto paths_cleanup;
+    }
+    strncpy(paths->dir_path, vhdm->filename, dirlen);
+    /* Get the filename field from the sparse header. */
+    utf_outlen = (int)sizeof paths->file_name;
+    utf_inlen = (int)sizeof vhdm->sparse.par_utf16_name;
+    utf_ret = UTF16BEToUTF8((unsigned char*)paths->file_name, &utf_outlen, (const unsigned char*)vhdm->sparse.par_utf16_name, &utf_inlen);
+    if (utf_ret < 0) {
+        mvhd_set_encoding_err(utf_ret, err);
+        goto paths_cleanup;
+    }
+    /* Now read the parent locator entries, both relative and absolute, if they exist */
+    unsigned char* loc_path;
+    for (int i = 0; i < 8; i++) {
+        utf_outlen = MVHD_MAX_PATH_BYTES - 1;
+        if (vhdm->sparse.par_loc_entry[i].plat_code == MVHD_DIF_LOC_W2RU) {
+            loc_path = (unsigned char*)paths->w2ru_path;
+        } else if (vhdm->sparse.par_loc_entry[i].plat_code == MVHD_DIF_LOC_W2KU) {
+            loc_path = (unsigned char*)paths->w2ku_path;
+        } else {
+            continue;
+        }
+        utf_inlen = vhdm->sparse.par_loc_entry[i].plat_data_len;
+        if (utf_inlen > MVHD_MAX_PATH_BYTES) {
+            *err = MVHD_ERR_PATH_LEN;
+            goto paths_cleanup;
+        }
+        fseeko64(vhdm->f, vhdm->sparse.par_loc_entry[i].plat_data_offset, SEEK_SET);
+        fread(paths->tmp_src_path, sizeof (uint8_t), utf_inlen, vhdm->f);
+        /* Note, the W2*u parent locators are UTF-16LE, unlike the filename field previously obtained, 
+           which is UTF-16BE */
+        utf_ret = UTF16LEToUTF8(loc_path, &utf_outlen, (const unsigned char*)paths->tmp_src_path, &utf_inlen);
+        if (utf_ret < 0) {
+            mvhd_set_encoding_err(utf_ret, err);
+            goto paths_cleanup;
+        }
+    }
+    /* We have paths in UTF-8. We should have enough info to try and find the parent VHD */
+    /* Does the relative path exist? */
+    if (mvhd_parent_path_exists(paths, MVHD_DIF_LOC_W2RU)) {
+        par_fp = tmp_open_path;
+        goto paths_cleanup;
+    }
+    /* What about trying the child directory? */
+    if (mvhd_parent_path_exists(paths, 0)) {
+        par_fp = tmp_open_path;
+        goto paths_cleanup;
+    }
+    /* Well, all else fails, try the stored absolute path, if it exists */
+    if (mvhd_parent_path_exists(paths, MVHD_DIF_LOC_W2KU)) {
+        par_fp = tmp_open_path;
+        goto paths_cleanup;
+    }
+    /* If we reach this point, we could not find a path with a valid file */
+    par_fp = NULL;
+    *err = MVHD_ERR_PAR_NOT_FOUND;
+    
+paths_cleanup:
+    free(paths);
+    paths = NULL;
+end:
+    return par_fp;
+}
+
+/**
  * \brief Attach the read/write function pointers to read/write functions
  * 
  * Depending on the VHD type, different sector reading and writing functions are used. 
@@ -299,7 +452,12 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
         *err = MVHD_ERR_MEM;
         goto end;
     }
-    vhdm->f = readonly ? mvhd_fopen(path, "rb", err) : mvhd_fopen(path, "rb+", err);
+    if (strlen(path) >= sizeof vhdm->filename) {
+        *err = MVHD_ERR_PATH_LEN;
+        goto cleanup_vhdm;
+    }
+    strcpy(vhdm->filename, path);
+    vhdm->f = readonly ? mvhd_fopen((const char*)vhdm->filename, "rb", err) : mvhd_fopen((const char*)vhdm->filename, "rb+", err);
     if (vhdm->f == NULL) {
         /* note, mvhd_fopen sets err for us */
         goto cleanup_vhdm;
@@ -336,7 +494,25 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
     }
     mvhd_assign_io_funcs(vhdm);
     vhdm->format_buffer.zero_data = calloc(64, MVHD_SECTOR_SIZE);
+    if (vhdm->format_buffer.zero_data == NULL) {
+        *err = MVHD_ERR_MEM;
+        goto cleanup_bitmap;
+    }
     vhdm->format_buffer.sector_count = 64;
+    if (vhdm->footer.disk_type == MVHD_TYPE_DIFF) {
+        char* par_path = mvhd_get_diff_parent_path(vhdm, err);
+        if (par_path == NULL) {
+            goto cleanup_format_buff;
+        }
+        vhdm->parent = mvhd_open(par_path, true, err);
+        if (vhdm->parent == NULL) {
+            goto cleanup_format_buff;
+        }
+        if (memcmp(vhdm->sparse.par_uuid, vhdm->parent->footer.uuid, sizeof vhdm->sparse.par_uuid) != 0) {
+            *err = MVHD_ERR_INVALID_PAR_UUID;
+            goto cleanup_format_buff;
+        }
+    }
     /* If we've reached this point, we are good to go, so skip the cleanup steps */
     goto end;
 cleanup_format_buff:
