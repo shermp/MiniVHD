@@ -540,24 +540,26 @@ end:
  * \param [in] vhdm MiniVHD data structure to close
  */
 void mvhd_close(MVHDMeta* vhdm) {
-    if (vhdm->parent != NULL) {
-        mvhd_close(vhdm->parent);
+    if (vhdm != NULL) {
+        if (vhdm->parent != NULL) {
+            mvhd_close(vhdm->parent);
+        }
+        fclose(vhdm->f);
+        if (vhdm->block_offset != NULL) {
+            free(vhdm->block_offset);
+            vhdm->block_offset = NULL;
+        }
+        if (vhdm->bitmap.curr_bitmap != NULL) {
+            free(vhdm->bitmap.curr_bitmap);
+            vhdm->bitmap.curr_bitmap = NULL;
+        }
+        if (vhdm->format_buffer.zero_data != NULL) {
+            free(vhdm->format_buffer.zero_data);
+            vhdm->format_buffer.zero_data = NULL;
+        }
+        free(vhdm);
+        vhdm = NULL;
     }
-    fclose(vhdm->f);
-    if (vhdm->block_offset != NULL) {
-        free(vhdm->block_offset);
-        vhdm->block_offset = NULL;
-    }
-    if (vhdm->bitmap.curr_bitmap != NULL) {
-        free(vhdm->bitmap.curr_bitmap);
-        vhdm->bitmap.curr_bitmap = NULL;
-    }
-    if (vhdm->format_buffer.zero_data != NULL) {
-        free(vhdm->format_buffer.zero_data);
-        vhdm->format_buffer.zero_data = NULL;
-    }
-    free(vhdm);
-    vhdm = NULL;
 }
 
 /**
