@@ -19,7 +19,9 @@ typedef enum MVHDError {
     MVHD_ERR_PATH_REL,
     MVHD_ERR_PATH_LEN,
     MVHD_ERR_PAR_NOT_FOUND,
-    MVHD_ERR_INVALID_PAR_UUID
+    MVHD_ERR_INVALID_PAR_UUID,
+    MVHD_ERR_INVALID_GEOM,
+    MVHD_ERR_INVALID_PARAMS
 } MVHDError;
 
 typedef struct MVHDGeom {
@@ -32,9 +34,9 @@ typedef struct MVHDMeta MVHDMeta;
 
 bool mvhd_file_is_vhd(FILE* f);
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
-MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err);
+MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, volatile int* pos, int* err);
 MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
-MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, MVHDGeom geom, int* err);
+MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
 void mvhd_close(MVHDMeta* vhdm);
 MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size);
 int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);

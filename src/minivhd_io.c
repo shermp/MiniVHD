@@ -17,7 +17,6 @@
 #define VHD_TESTBIT(A,k)    ( A[(k/8)] & (0x80 >> (k%8)) )
 
 static inline void mvhd_check_sectors(int offset, int num_sectors, int total_sectors, int* transfer_sect, int* trunc_sect);
-static void mvhd_write_empty_sectors(FILE* f, int sector_count);
 static void mvhd_read_sect_bitmap(MVHDMeta* vhdm, int blk);
 static void mvhd_write_bat_entry(MVHDMeta* vhdm, int blk);
 static void mvhd_create_block(MVHDMeta* vhdm, int blk);
@@ -51,7 +50,7 @@ static inline void mvhd_check_sectors(int offset, int num_sectors, int total_sec
  * \param [in] f File to write sectors to
  * \param [in] sector_count The number of sectors to write
  */
-static void mvhd_write_empty_sectors(FILE* f, int sector_count) {
+void mvhd_write_empty_sectors(FILE* f, int sector_count) {
     uint8_t zero_bytes[MVHD_SECTOR_SIZE] = {0};
     for (int i = 0; i < sector_count; i++) {
         fwrite(zero_bytes, sizeof zero_bytes, 1, f);

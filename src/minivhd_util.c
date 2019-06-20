@@ -143,3 +143,47 @@ void mvhd_set_encoding_err(int encoding_retval, int* err) {
         *err = MVHD_ERR_UTF_TRANSCODING_FAILED;
     }
 }
+
+uint64_t mvhd_calc_size_bytes(MVHDGeom *geom) {
+    uint64_t img_size = (uint64_t)geom->cyl * (uint64_t)geom->heads * (uint64_t)geom->spt * (uint64_t)MVHD_SECTOR_SIZE;
+    return img_size;
+}
+
+uint32_t mvhd_calc_size_sectors(MVHDGeom *geom) {
+    uint32_t sector_size = (uint32_t)geom->cyl * (uint32_t)geom->heads * (uint32_t)geom->spt;
+    return sector_size;
+}
+
+/**
+ * \brief Generate VHD footer checksum
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
+uint32_t mvhd_gen_footer_checksum(MVHDFooter* footer) {
+    uint32_t new_chk = 0;
+    uint32_t orig_chk = footer->checksum;
+    footer->checksum = 0;
+    uint8_t* footer_bytes = (uint8_t*)footer;
+    for (size_t i = 0; i < sizeof *footer; i++) {
+        new_chk += footer_bytes[i];
+    }
+    footer->checksum = orig_chk;
+    return ~new_chk;
+}
+
+/**
+ * \brief Generate VHD sparse header checksum
+ * 
+ * \param [in] vhdm MiniVHD data structure
+ */
+uint32_t mvhd_gen_sparse_checksum(MVHDSparseHeader* header) {
+    uint32_t new_chk = 0;
+    uint32_t orig_chk = header->checksum;
+    header->checksum = 0;
+    uint8_t* sparse_bytes = (uint8_t*)header;
+    for (size_t i = 0; i < sizeof *header; i++) {
+        new_chk += sparse_bytes[i];
+    }
+    header->checksum = orig_chk;
+    return ~new_chk;
+}

@@ -8,7 +8,8 @@
 #define MVHD_SPARSE_SIZE 1024
 
 #define MVHD_SECTOR_SIZE 512
-#define MVHD_MAX_BLOCK_SIZE 0x00200000
+#define MVHD_SECT_PER_BLOCK 4096 /* 2MB block size */
+#define MVHD_BAT_ENT_PER_SECT 128
 
 #define MVHD_SPARSE_BLK 0xffffffff
 /* For simplicity, we don't handle paths longer than this 

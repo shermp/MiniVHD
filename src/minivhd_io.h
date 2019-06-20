@@ -2,6 +2,7 @@
 #define MINIVHD_IO_H
 #include "minivhd.h"
 
+void mvhd_write_empty_sectors(FILE* f, int sector_count);
 int mvhd_fixed_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
 int mvhd_sparse_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
 int mvhd_diff_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
