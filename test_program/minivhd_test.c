@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "../src/minivhd.h"
 
 int main(int argc, char* argv[]) {
@@ -9,6 +10,15 @@ int main(int argc, char* argv[]) {
     char* path = argv[1];
     int err;
     MVHDMeta* vhdm = mvhd_open(path, false, &err);
+    mvhd_close(vhdm);
+    /* Creation Tests */
+    int new_size;
+    MVHDGeom geom = mvhd_calculate_geometry(512, &new_size);
+    vhdm = mvhd_create_sparse("C:/StandaloneProg/pcem/Images/minivhd/sparse.vhd", geom, &err);
+    if (vhdm == NULL) {
+        printf("Failed with exit code: %d", err);
+        return 1;
+    }
     mvhd_close(vhdm);
     return 0;
 }

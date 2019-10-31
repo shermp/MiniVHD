@@ -55,21 +55,23 @@ static void mvhd_next_buffer_to_struct(void* struct_memb, size_t memb_size, bool
  * \param [out] buffer the buffer from which struct member is saved to. Will be advanced at the end of the function call
  */
 static void mvhd_next_struct_to_buffer(void* struct_memb, size_t memb_size, bool req_endian, uint8_t** buffer) {
-    memcpy(*buffer, struct_memb, memb_size);
+    uint8_t *buf_ptr = *buffer;
+    memcpy(buf_ptr, struct_memb, memb_size);
     if (req_endian) {
         switch (memb_size) {
         case 2:
-            *(uint16_t*)(struct_memb) = cpu_to_be16(*(uint16_t*)(struct_memb));
+            *((uint16_t*)buf_ptr) = cpu_to_be16(*(uint16_t*)(struct_memb));
             break;
         case 4:
-            *(uint32_t*)(struct_memb) = cpu_to_be32(*(uint32_t*)(struct_memb));
+            *((uint32_t*)buf_ptr) = cpu_to_be32(*(uint32_t*)(struct_memb));
             break;
         case 8:
-            *(uint64_t*)(struct_memb) = cpu_to_be64(*(uint64_t*)(struct_memb));
+            *((uint64_t*)buf_ptr) = cpu_to_be64(*(uint64_t*)(struct_memb));
             break;
         }
     }
-    *buffer += memb_size;
+    buf_ptr += memb_size;
+    *buffer = buf_ptr;
 }
 
 /**
