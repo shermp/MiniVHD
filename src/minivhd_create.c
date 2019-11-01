@@ -23,14 +23,14 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
 static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err);
 
 static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off) {
-    strncpy(footer->cookie, "conectix", sizeof footer->cookie);
+    memcpy(footer->cookie, "conectix", sizeof footer->cookie);
     footer->features = 0x00000002;
     footer->fi_fmt_vers = 0x00010000;
     footer->data_offset = (type == MVHD_TYPE_DIFF || type == MVHD_TYPE_DYNAMIC) ? sparse_header_off : 0xffffffffffffffff;
     footer->timestamp = vhd_calc_timestamp();
-    strncpy(footer->cr_app, "mvhd", sizeof footer->cr_app);
+    memcpy(footer->cr_app, "mvhd", sizeof footer->cr_app);
     footer->cr_vers = 0x000e0000;
-    strncpy(footer->cr_host_os, "Wi2k", sizeof footer->cr_host_os);
+    memcpy(footer->cr_host_os, "Wi2k", sizeof footer->cr_host_os);
     footer->orig_sz = footer->curr_sz = mvhd_calc_size_bytes(geom);
     footer->geom.cyl = geom->cyl;
     footer->geom.heads = geom->heads;
@@ -41,7 +41,7 @@ static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, u
 }
 
 static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset) {
-    strncpy(header->cookie, "cxsparse", sizeof header->cookie);
+    memcpy(header->cookie, "cxsparse", sizeof header->cookie);
     header->data_offset = 0xffffffffffffffff;
     header->bat_offset = bat_offset;
     header->head_vers = 0x00010000;
@@ -72,7 +72,7 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
         rv = -1;
         goto end;
     }
-    cwk_path_get_basename(par_path, &par_filename, &par_fn_len);
+    cwk_path_get_basename(par_path, (const char**)&par_filename, &par_fn_len);
     cwk_path_get_dirname(child_dir, &child_dir_len);
     child_dir[child_dir_len] = '\0';
     size_t rel_len = cwk_path_get_relative(child_dir, par_path, rel_path, sizeof rel_path);
