@@ -452,7 +452,7 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
             goto cleanup_bat;
         }
 
-    } else if (vhdm->footer.disk_type == MVHD_TYPE_FIXED) {
+    } else if (vhdm->footer.disk_type != MVHD_TYPE_FIXED) {
         *err = MVHD_ERR_TYPE;
         goto cleanup_bitmap;
     }
