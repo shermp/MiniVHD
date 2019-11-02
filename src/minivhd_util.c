@@ -21,14 +21,6 @@ const char MVHD_CREATOR[] = "pcem";
 const char MVHD_CREATOR_HOST_OS[] = "Wi2k";
 const char MVHD_CXSPARSE_COOKIE[] = "cxsparse";
 
-/**
- * \brief Check if provided buffer begins with the string "conectix"
- * 
- * \param [in] buffer The buffer to compare. Must be at least 8 bytes in length
- * 
- * \return true if the buffer begins with "conectix"
- * \return false if the buffer does not begin with "conectix"
- */
 bool mvhd_is_conectix_str(const void* buffer) {
     if (strncmp(buffer, MVHD_CONECTIX_COOKIE, strlen(MVHD_CONECTIX_COOKIE)) == 0) {
         return true;
@@ -37,11 +29,6 @@ bool mvhd_is_conectix_str(const void* buffer) {
     }
 }
 
-/**
- * \brief Generate a raw 16 byte UUID
- * 
- * \param [out] uuid A 16 byte buffer in which the generated UUID will be stored to
- */
 void mvhd_generate_uuid(uint8_t* uuid)
 {
 #if defined(HAVE_UUID_H)
@@ -59,9 +46,6 @@ void mvhd_generate_uuid(uint8_t* uuid)
 #endif
 }
 
-/**
- * \brief Calculate a VHD formatted timestamp from the current time
- */
 uint32_t vhd_calc_timestamp(void)
 {
         time_t start_time;
@@ -73,13 +57,6 @@ uint32_t vhd_calc_timestamp(void)
         return (uint32_t)vhd_time;
 }
 
-/**
- * \brief Return the created time from a VHD image
- * 
- * \param [in] vhdm Pointer to the MiniVHD metadata structure
- * 
- * \return The created time, as a Unix timestamp
- */
 time_t vhd_get_created_time(MVHDMeta *vhdm)
 {
         time_t vhd_time = (time_t)vhdm->footer.timestamp;
@@ -87,21 +64,6 @@ time_t vhd_get_created_time(MVHDMeta *vhdm)
         return vhd_time_unix;
 }
 
-/**
- * \brief Cross platform, unicode filepath opening
- * 
- * This function accounts for the fact that fopen() handles file paths differently compared to other 
- * operating systems. Windows version of fopen() will not handle multi byte encoded text like UTF-8. 
- * 
- * Unicode filepath support on Windows requires using the _wfopen() function, which expects UTF-16LE 
- * encoded path and modestring.
- * 
- * \param [in] path The filepath to open as a UTF-8 string
- * \param [in] mode The mode string to use (eg: "rb+"")
- * \param [out] err The error value, if an error occurrs
- * 
- * \return a FILE pointer if successful, NULL otherwise. If NULL, check the value of err
- */
 FILE* mvhd_fopen(const char* path, const char* mode, int* err) {
     FILE* f = NULL;
 #ifdef _WIN32
@@ -154,11 +116,6 @@ uint32_t mvhd_calc_size_sectors(MVHDGeom *geom) {
     return sector_size;
 }
 
-/**
- * \brief Generate VHD footer checksum
- * 
- * \param [in] vhdm MiniVHD data structure
- */
 uint32_t mvhd_gen_footer_checksum(MVHDFooter* footer) {
     uint32_t new_chk = 0;
     uint32_t orig_chk = footer->checksum;
@@ -171,11 +128,6 @@ uint32_t mvhd_gen_footer_checksum(MVHDFooter* footer) {
     return ~new_chk;
 }
 
-/**
- * \brief Generate VHD sparse header checksum
- * 
- * \param [in] vhdm MiniVHD data structure
- */
 uint32_t mvhd_gen_sparse_checksum(MVHDSparseHeader* header) {
     uint32_t new_chk = 0;
     uint32_t orig_chk = header->checksum;

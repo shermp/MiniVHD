@@ -316,14 +316,6 @@ static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
     }
 }
 
-/**
- * \brief A simple test to see if a given file is a VHD
- * 
- * \param [in] f file to test
- * 
- * \retval true if f is a VHD
- * \retval false if f is not a VHD
- */
 bool mvhd_file_is_vhd(FILE* f) {
     if (f) {
         uint8_t con_str[8];
@@ -335,23 +327,6 @@ bool mvhd_file_is_vhd(FILE* f) {
     }
 }
 
-/**
- * \brief Calculate hard disk geometry from a provided size
- * 
- * The VHD format uses Cylinder, Heads, Sectors per Track (CHS) when accessing the disk.
- * The size of the disk can be determined from C * H * S * sector_size.
- * 
- * Note, maximum VHD size (in bytes) is 65535 * 16 * 255 * 512, which is 127GB
- * 
- * This function determines the appropriate CHS geometry from a provided size in MB.
- * The calculations used are those provided in "Appendix: CHS Calculation" from the document 
- * "Virtual Hard Disk Image Format Specification" provided by Microsoft.
- * 
- * \param [in] size_mb the desired VHD image size, in MiB
- * \param [out] new_size the actual size of the VHD image, as determined by the closest CHS calculation
- * 
- * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
- */
 MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     MVHDGeom chs;
     uint32_t ts = ((uint64_t)size_mb * 1024 * 1024) / MVHD_SECTOR_SIZE;
@@ -391,24 +366,6 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     return chs;
 }
 
-/**
- * \brief Open a VHD image for reading and/or writing
- * 
- * The returned pointer contains all required values and structures (and files) to 
- * read and write to a VHD file.
- * 
- * Remember to call mvhd_close() when you are finished.
- * 
- * \param [in] Absolute path to VHD file. Relative path will cause issues when opening
- * a differencing VHD file
- * \param [in] readonly set this to true to open the VHD in a read only manner
- * \param [out] err will be set if the VHD fails to open. Value could be one of 
- * MVHD_ERR_MEM, MVHD_ERR_FILE, MVHD_ERR_NOT_VHD, MVHD_ERR_FOOTER_CHECKSUM, MVHD_ERR_SPARSE_CHECKSUM, 
- * MVHD_ERR_TYPE
- * If MVHD_ERR_FILE is set, mvhd_errno will be set to the appropriate system errno value
- * 
- * \return MVHDMeta pointer. If NULL, check err.
- */
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
     int open_err;
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
@@ -498,11 +455,6 @@ end:
     return vhdm;
 }
 
-/**
- * \brief Safely close a VHD image
- * 
- * \param [in] vhdm MiniVHD data structure to close
- */
 void mvhd_close(MVHDMeta* vhdm) {
     if (vhdm != NULL) {
         if (vhdm->parent != NULL) {
@@ -526,51 +478,14 @@ void mvhd_close(MVHDMeta* vhdm) {
     }
 }
 
-/**
- * \brief Read sectors from VHD file
- * 
- * Read num_sectors, beginning at offset from the VHD file into a buffer
- * 
- * \param [in] vhdm MiniVHD data structure
- * \param [in] offset the sector offset from which to start reading from
- * \param [in] num_sectors the number of sectors to read
- * \param [out] out_buff the buffer to write sector data to
- * 
- * \return the number of sectors that were not read, or zero
- */
 int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
     return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
 }
 
-/**
- * \brief Write sectors to VHD file
- * 
- * Write num_sectors, beginning at offset from a buffer VHD file into the VHD file
- * 
- * \param [in] vhdm MiniVHD data structure
- * \param [in] offset the sector offset from which to start writing to
- * \param [in] num_sectors the number of sectors to write
- * \param [in] in_buffer the buffer to write sector data to
- * 
- * \return the number of sectors that were not written, or zero
- */
 int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
     return vhdm->write_sectors(vhdm, offset, num_sectors, in_buff);
 }
 
-/**
- * \brief Write zeroed sectors to VHD file
- * 
- * Write num_sectors, beginning at offset, of zero data into the VHD file. 
- * We reuse the existing write functions, with a preallocated zero buffer as 
- * our source buffer.
- * 
- * \param [in] vhdm MiniVHD data structure
- * \param [in] offset the sector offset from which to start writing to
- * \param [in] num_sectors the number of sectors to write
- * 
- * \return the number of sectors that were not written, or zero
- */
 int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors) {
     int num_full = num_sectors / vhdm->format_buffer.sector_count;
     int remain = num_sectors % vhdm->format_buffer.sector_count;

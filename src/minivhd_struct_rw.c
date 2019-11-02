@@ -74,12 +74,6 @@ static void mvhd_next_struct_to_buffer(void* struct_memb, size_t memb_size, bool
     *buffer = buf_ptr;
 }
 
-/**
- * \brief Save the contents of a VHD footer from a buffer to a struct
- * 
- * \param [out] footer save contents of buffer into footer
- * \param [in] buffer VHD footer in raw bytes
- */
 void mvhd_buffer_to_footer(MVHDFooter* footer, uint8_t* buffer) {
     uint8_t* buff_ptr = buffer;
     mvhd_next_buffer_to_struct(&footer->cookie, sizeof footer->cookie, false, &buff_ptr);
@@ -102,12 +96,6 @@ void mvhd_buffer_to_footer(MVHDFooter* footer, uint8_t* buffer) {
     mvhd_next_buffer_to_struct(&footer->reserved, sizeof footer->reserved, false, &buff_ptr);
 }
 
-/**
- * \brief Save the contents of a VHD footer struct to a buffer
- * 
- * \param [in] footer save contents of struct into buffer
- * \param [out] buffer VHD footer in raw bytes
- */
 void mvhd_footer_to_buffer(MVHDFooter* footer, uint8_t* buffer) {
     uint8_t* buff_ptr = buffer;
     mvhd_next_struct_to_buffer(&footer->cookie, sizeof footer->cookie, false, &buff_ptr);
@@ -130,12 +118,6 @@ void mvhd_footer_to_buffer(MVHDFooter* footer, uint8_t* buffer) {
     mvhd_next_struct_to_buffer(&footer->reserved, sizeof footer->reserved, false, &buff_ptr);
 }
 
-/**
- * \brief Save the contents of a VHD sparse header from a buffer to a struct
- * 
- * \param [out] header save contents of buffer into header
- * \param [in] buffer VHD header in raw bytes
- */
 void mvhd_buffer_to_header(MVHDSparseHeader* header, uint8_t* buffer) {
     uint8_t* buff_ptr = buffer;
     mvhd_next_buffer_to_struct(&header->cookie, sizeof header->cookie, false, &buff_ptr);
@@ -159,12 +141,6 @@ void mvhd_buffer_to_header(MVHDSparseHeader* header, uint8_t* buffer) {
     mvhd_next_buffer_to_struct(&header->reserved_2, sizeof header->reserved_2, false, &buff_ptr);
 }
 
-/**
- * \brief Save the contents of a VHD sparse header struct to a buffer
- * 
- * \param [in] header save contents of struct into buffer
- * \param [out] buffer VHD sparse header in raw bytes
- */
 void mvhd_header_to_buffer(MVHDSparseHeader* header, uint8_t* buffer) {
     uint8_t* buff_ptr = buffer;
     mvhd_next_struct_to_buffer(&header->cookie, sizeof header->cookie, false, &buff_ptr);

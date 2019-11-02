@@ -22,6 +22,14 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
                             MVHDError* err);
 static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err);
 
+/**
+ * \brief Populate a VHD footer
+ * 
+ * \param [in] footer to populate
+ * \param [in] geom to use
+ * \param [in] type of HVD that is being created
+ * \param [in] sparse_header_off, an absolute file offset to the sparse header. Not used for fixed VHD images
+ */
 static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off) {
     memcpy(footer->cookie, "conectix", sizeof footer->cookie);
     footer->features = 0x00000002;
@@ -40,6 +48,13 @@ static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, u
     footer->checksum = mvhd_gen_footer_checksum(footer);
 }
 
+/**
+ * \brief Populate a VHD sparse header
+ * 
+ * \param [in] header for sparse and differencing images
+ * \param [in] num_blks is the number of data blocks that the image contains
+ * \param [in] bat_offset is the absolute file offset for start of the Block Allocation Table
+ */
 static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset) {
     memcpy(header->cookie, "cxsparse", sizeof header->cookie);
     header->data_offset = 0xffffffffffffffff;
@@ -50,6 +65,20 @@ static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, 
     header->checksum = mvhd_gen_sparse_checksum(header);
 }
 
+/**
+ * \brief Generate parent locators for differencing VHD images
+ * 
+ * \param [in] header the sparse header to populate with parent locator entries
+ * \param [in] child_path is the full path to the VHD being created
+ * \param [in] par_path is the full path to the parent image
+ * \param [in] start_offset is the absolute file offset from where to start storing the entries themselves. Must be sector aligned.
+ * \param [out] w2ku_buffer is a buffer containing the full path to the parent, encoded as UTF16-LE
+ * \param [out] w2ru_buffer is a buffer containing the relative path to the parent, encoded as UTF16-LE
+ * \param [out] err indicates what error occurred, if any
+ * 
+ * \retval 0 if success
+ * \retval < 0 if an error occurrs. Check value of *err for actual error
+ */
 static int mvhd_gen_par_loc(MVHDSparseHeader* header, 
                             const char* child_path, 
                             const char* par_path, 
@@ -81,7 +110,7 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
         rv = -1;
         goto end;
     }
-    /* We have our paths, store them in the sparse header. */
+    /* We have our paths, now store the parent filename directly in the sparse header. */
     int outlen = sizeof header->par_utf16_name;
     int utf_ret;
     utf_ret = UTF8ToUTF16BE((unsigned char*)header->par_utf16_name, &outlen, (const unsigned char*)par_filename, (int*)&par_fn_len);
@@ -90,7 +119,11 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
         rv = -1;
         goto end;
     }
-    /* Create output buffers to encode paths into */
+    /** 
+     * Create output buffers to encode paths into. 
+     * The paths are not stored directly in the sparse header, hence the need to 
+     * store them in buffers to be written to the VHD image later
+     */
     mvhd_utf16 *w2ku_path = calloc(MVHD_MAX_PATH_CHARS, sizeof *w2ku_path);
     if (w2ku_path == NULL) {
         *err = MVHD_ERR_MEM;
@@ -121,7 +154,11 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
         goto cleanup_w2ru;
     }
     int w2ru_len = utf_ret;
-    /* Finally populate the parent locaters in the sparse header */
+    /** 
+     * Finally populate the parent locaters in the sparse header.
+     * This is the information needed to find the paths saved elsewhere
+     * in the VHD image 
+     */
     header->par_loc_entry[0].plat_code = MVHD_DIF_LOC_W2KU;
     header->par_loc_entry[0].plat_data_len = (uint32_t)w2ku_len;
     header->par_loc_entry[0].plat_data_offset = (uint64_t)start_offset;
@@ -180,6 +217,16 @@ end:
     return vhdm;
 }
 
+/**
+ * \brief Create sparse or differencing VHD image.
+ * 
+ * \param [in] path is the absolute path to the VHD file to create
+ * \param [in] par_path is the absolute path to a parent image. If NULL, a sparse image is created, otherwise create a differencing image
+ * \param [in] geom is the HDD geometry of the image to create. Determines final image size
+ * \param [out] err indicates what error occurred, if any
+ * 
+ * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
+ */
 static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err) {
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     uint8_t sparse_buff[MVHD_SPARSE_SIZE] = {0};
@@ -199,6 +246,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         goto cleanup_par_vhdm;
     }
     if (par_vhdm != NULL) {
+        /* We use the geometry from the parent VHD, not what was passed in */
         par_geom.cyl = par_vhdm->footer.geom.cyl;
         par_geom.heads = par_vhdm->footer.geom.heads;
         par_geom.spt = par_vhdm->footer.geom.spt;
@@ -215,13 +263,21 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         goto cleanup_vhdm;
     }
     fseeko64(f, 0, SEEK_SET);
+    /* Note, the sparse header follows the footer copy at the beginning of the file */
     if (par_path == NULL) {
         mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_DYNAMIC, MVHD_FOOTER_SIZE);
     } else {
         mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_DIFF, MVHD_FOOTER_SIZE);
     }
     mvhd_footer_to_buffer(&vhdm->footer, footer_buff);
+    /* As mentioned, start with a copy of the footer */
     fwrite(footer_buff, sizeof footer_buff, 1, f);
+    /**
+     * Calculate the number of (2MB) data blocks required to store the entire
+     * contents of the disk image, followed by the number of sectors the 
+     * BAT occupies in the image. Note, the BAT is sector aligned, and is padded
+     * to the next sector boundary 
+     * */
     uint32_t num_blks = mvhd_calc_size_sectors(geom) / MVHD_SECT_PER_BLOCK;
     if (mvhd_calc_size_sectors(geom) % MVHD_SECT_PER_BLOCK != 0) {
         num_blks += 1;
@@ -230,10 +286,15 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
     if (num_blks % MVHD_BAT_ENT_PER_SECT != 0) {
         num_bat_sect += 1;
     }
+    /* Storing the BAT directly following the footer and header */
     uint64_t bat_offset = MVHD_FOOTER_SIZE + MVHD_SPARSE_SIZE;
     uint64_t par_loc_offset = 0;
     uint8_t *w2ku_path, *w2ru_path;
     w2ku_path = w2ru_path = NULL;
+    /**
+     * If creating a differencing VHD, populate the sparse header with additional 
+     * data about the parent image, and where to find it
+     * */
     if (par_vhdm != NULL) {
         memcpy(vhdm->sparse.par_uuid, par_vhdm->footer.uuid, sizeof vhdm->sparse.par_uuid);
         par_loc_offset = bat_offset + (num_bat_sect * MVHD_SECTOR_SIZE) + (5 * MVHD_SECTOR_SIZE);
@@ -244,10 +305,15 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
     mvhd_gen_sparse_header(&vhdm->sparse, num_blks, bat_offset);
     mvhd_header_to_buffer(&vhdm->sparse, sparse_buff);
     fwrite(sparse_buff, sizeof sparse_buff, 1, f);
+    /* The BAT sectors need to be filled with 0xffffffff */
     for (uint32_t i = 0; i < num_bat_sect; i++) {
         fwrite(bat_sect, sizeof bat_sect, 1, f);
     }
     mvhd_write_empty_sectors(f, 5);
+    /**
+     * If creating a differencing VHD, the paths to the parent image need to be written
+     * tp the file. Both absolute and relative paths are written 
+     * */
     if (par_vhdm != NULL) {
         uint64_t curr_pos = (uint64_t)ftello64(f);
         /* Double check my sums... */
@@ -268,6 +334,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         fseeko64(f, vhdm->sparse.par_loc_entry[1].plat_data_offset + (vhdm->sparse.par_loc_entry[1].plat_data_space * MVHD_SECTOR_SIZE), SEEK_SET);
         mvhd_write_empty_sectors(f, 5);
     }
+    /* And finish with the footer */
     fwrite(footer_buff, sizeof footer_buff, 1, f);
     fclose(f);
     f = NULL;
