@@ -33,6 +33,15 @@ typedef struct MVHDGeom {
 typedef struct MVHDMeta MVHDMeta;
 
 /**
+ * \brief Output a string from a MiniVHD error number
+ * 
+ * \param [in] err is the error number to return string from
+ * 
+ * \return Error string
+ */
+const char* mvhd_strerr(MVHDError err);
+
+/**
  * \brief A simple test to see if a given file is a VHD
  * 
  * \param [in] f file to test

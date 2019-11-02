@@ -139,3 +139,38 @@ uint32_t mvhd_gen_sparse_checksum(MVHDSparseHeader* header) {
     header->checksum = orig_chk;
     return ~new_chk;
 }
+
+const char* mvhd_strerr(MVHDError err) {
+    switch (err) {
+    case MVHD_ERR_MEM:
+        return "memory allocation error";
+    case MVHD_ERR_FILE:
+        return "file error";
+    case MVHD_ERR_NOT_VHD:
+        return "file is not a VHD image";
+    case MVHD_ERR_TYPE:
+        return "unsupported VHD image type";
+    case MVHD_ERR_FOOTER_CHECKSUM:
+        return "invalid VHD footer checksum";
+    case MVHD_ERR_SPARSE_CHECKSUM:
+        return "invalid VHD sparse header checksum";
+    case MVHD_ERR_UTF_TRANSCODING_FAILED:
+        return "error converting path encoding";
+    case MVHD_ERR_UTF_SIZE:
+        return "buffer size mismatch when converting path encoding";
+    case MVHD_ERR_PATH_REL:
+        return "relative path detected where absolute path expected";
+    case MVHD_ERR_PATH_LEN:
+        return "path length exceeds MVHD_MAX_PATH";
+    case MVHD_ERR_PAR_NOT_FOUND:
+        return "parent VHD image not found";
+    case MVHD_ERR_INVALID_PAR_UUID:
+        return "UUID mismatch between child and parent VHD";
+    case MVHD_ERR_INVALID_GEOM:
+        return "invalid geometry detected";
+    case MVHD_ERR_INVALID_PARAMS:
+        return "invalid parameters passed to function";
+    default:
+        return "unknown error";
+    }
+}
