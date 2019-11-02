@@ -126,11 +126,10 @@ void mvhd_close(MVHDMeta* vhdm);
  * "Virtual Hard Disk Image Format Specification" provided by Microsoft.
  * 
  * \param [in] size_mb the desired VHD image size, in MiB
- * \param [out] new_size the actual size of the VHD image, as determined by the closest CHS calculation
  * 
  * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
  */
-MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size);
+MVHDGeom mvhd_calculate_geometry(int size_mb);
 
 /**
  * \brief Read sectors from VHD file

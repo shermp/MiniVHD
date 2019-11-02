@@ -327,7 +327,7 @@ bool mvhd_file_is_vhd(FILE* f) {
     }
 }
 
-MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
+MVHDGeom mvhd_calculate_geometry(int size_mb) {
     MVHDGeom chs;
     uint32_t ts = ((uint64_t)size_mb * 1024 * 1024) / MVHD_SECTOR_SIZE;
     uint32_t spt, heads, cyl, cth;
@@ -361,8 +361,6 @@ MVHDGeom mvhd_calculate_geometry(int size_mb, int* new_size) {
     chs.heads = heads;
     chs.spt = spt;
     chs.cyl = cyl;
-
-    *new_size = chs.cyl * chs.heads * chs.spt * MVHD_SECTOR_SIZE;
     return chs;
 }
 
