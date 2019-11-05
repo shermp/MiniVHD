@@ -121,15 +121,15 @@ void mvhd_close(MVHDMeta* vhdm);
  * 
  * Note, maximum VHD size (in bytes) is 65535 * 16 * 255 * 512, which is 127GB
  * 
- * This function determines the appropriate CHS geometry from a provided size in MB.
+ * This function determines the appropriate CHS geometry from a provided size in bytes.
  * The calculations used are those provided in "Appendix: CHS Calculation" from the document 
  * "Virtual Hard Disk Image Format Specification" provided by Microsoft.
  * 
- * \param [in] size_mb the desired VHD image size, in MiB
+ * \param [in] size the desired VHD image size, in bytes
  * 
  * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
  */
-MVHDGeom mvhd_calculate_geometry(int size_mb);
+MVHDGeom mvhd_calculate_geometry(uint64_t size);
 
 /**
  * \brief Read sectors from VHD file

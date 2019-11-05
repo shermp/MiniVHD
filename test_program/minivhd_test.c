@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
     MVHDMeta* vhdm = mvhd_open(path, false, &err);
     mvhd_close(vhdm);
     /* Creation Tests */
-    MVHDGeom geom = mvhd_calculate_geometry(512);
+    MVHDGeom geom = mvhd_calculate_geometry(512 * 1024 * 1024);
     vhdm = mvhd_create_sparse("C:/StandaloneProg/pcem/Images/minivhd/sparse.vhd", geom, &err);
     if (vhdm == NULL) {
         printf("Failed with exit code: %d", err);
