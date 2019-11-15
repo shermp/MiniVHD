@@ -41,7 +41,7 @@ MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_
         return NULL;
     }
     int pos;
-    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, (volatile int*)&pos, err);
+    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, &pos, err);
     if (vhdm == NULL) {
         return NULL;
     }

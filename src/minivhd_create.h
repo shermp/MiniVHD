@@ -3,6 +3,6 @@
 #include <stdio.h>
 #include "minivhd.h"
 
-MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, volatile int* pos, int* err);
+MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, int* pos, int* err);
 
 #endif

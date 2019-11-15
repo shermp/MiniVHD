@@ -178,7 +178,7 @@ end:
     return rv;
 }
 
-MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, volatile int* pos, int* err) {
+MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err) {
     return mvhd_create_fixed_raw(path, NULL, &geom, pos, err);
 }
 
@@ -190,7 +190,7 @@ MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, volatile int* pos, 
  * 
  * \param [in] raw_image file handle to a raw disk image to populate VHD
  */
-MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, volatile int* pos, int* err) {
+MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, int* pos, int* err) {
     uint8_t img_data[MVHD_SECTOR_SIZE] = {0};
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     MVHDMeta* vhdm = calloc(1, sizeof *vhdm);

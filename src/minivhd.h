@@ -83,7 +83,7 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
  * \retval 0 if success
  * \retval < 0 if an error occurrs. Check value of *err for actual error
  */
-MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, volatile int* pos, int* err);
+MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err);
 
 /**
  * \brief Create sparse (dynamic) VHD image.
