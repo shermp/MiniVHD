@@ -65,7 +65,7 @@ MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8
     for (int i = 0; i < total_sectors; i += 8) {
         copy_sect = 8;
         if ((i + 8) >= total_sectors) {
-            copy_sect = total_sectors - i - 1;
+            copy_sect = total_sectors - i;
             memset(buff, 0, sizeof buff);
         }
         fread(buff, MVHD_SECTOR_SIZE, copy_sect, raw_img);
@@ -94,7 +94,7 @@ FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, 
     for (int i = 0; i < total_sectors; i += 8) {
         copy_sect = 8;
         if ((i + 8) >= total_sectors) {
-            copy_sect = total_sectors - i - 1;
+            copy_sect = total_sectors - i;
         }
         mvhd_read_sectors(vhdm, i, copy_sect, buff);
         fwrite(buff, MVHD_SECTOR_SIZE, copy_sect, raw_img);
