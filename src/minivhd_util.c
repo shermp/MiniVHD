@@ -9,9 +9,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-#ifdef HAVE_UUID_H
-#include <uuid/uuid.h>
-#endif
 #include "libxml2_encoding.h"
 #include "minivhd_internal.h"
 #include "minivhd_util.h"
@@ -31,19 +28,15 @@ bool mvhd_is_conectix_str(const void* buffer) {
 
 void mvhd_generate_uuid(uint8_t* uuid)
 {
-#if defined(HAVE_UUID_H)
-    uuid_generate(guid);
-#else
-    int n;
-    srand(time(NULL));
-    for (n = 0; n < 16; n++) {
+    /* We aren't doing crypto here, so using system time as seed should be good enough */
+    srand(time(0));
+    for (int n = 0; n < 16; n++) {
         uuid[n] = rand();
     }
     uuid[6] &= 0x0F;
     uuid[6] |= 0x40; /* Type 4 */
     uuid[8] &= 0x3F;
     uuid[8] |= 0x80; /* Variant 1 */
-#endif
 }
 
 uint32_t vhd_calc_timestamp(void)
