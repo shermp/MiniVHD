@@ -2,4 +2,20 @@
 
 **MiniVHD** is a minimalist implementation of read/write/creation of VHD files. It is designed to read and write to VHD files at a sector level. It does not enable file access, or provide mounting options. Those features are left to more advanced libraries and/or the OS.
 
-**Please note, A re-write of this library is currently in progress. If you need the old (incomplete) version for whatever reason, it can be found in the `minivhd-v1` branch of this repository**
+## Features
+MiniVHD aims to implement as much of the VHD specification as possible. Features include:
+* Implemented in pure C. Some C99 features are used (such as stdint, stdbool, array initialisation), so not compatible with strict ANSI C
+* Full support for fixed, sparse (dynamic) and differencing VHD images
+* Open existing VHD images
+* VHD image creation
+* Conversion to/from raw disk images
+* Read/write sectors to VHD images
+* Aims to be cross platform, although not fully there yet. Works with MinGW-w64, and presumably GCC/Clang
+* Simple to include and use (I hope)
+
+## Usage
+Drop the source code in your project, and add the C files to your build system. No compiler flags are required.
+
+Include `minivhd.h` in your source to get started. See `minivhd.h` for documentation of the API.
+
+**Please note, an older version of this library can be found in the `minivhd-v1` branch of this repository, if required for some reason.**
