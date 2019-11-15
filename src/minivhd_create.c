@@ -9,6 +9,7 @@
 #include "minivhd_util.h"
 #include "minivhd_struct_rw.h"
 #include "minivhd_io.h"
+#include "minivhd_create.h"
 #include "minivhd.h"
 
 static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off);
@@ -178,14 +179,30 @@ end:
 }
 
 MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, volatile int* pos, int* err) {
-    uint8_t zero_data[MVHD_SECTOR_SIZE] = {0};
+    return mvhd_create_fixed_raw(path, NULL, &geom, pos, err);
+}
+
+/**
+ * \brief internal function that implements public mvhd_create_fixed() functionality
+ * 
+ * Contains one more parameter than the public function, to allow using an existing
+ * raw disk image as the data source for the new fixed VHD.
+ * 
+ * \param [in] raw_image file handle to a raw disk image to populate VHD
+ */
+MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, volatile int* pos, int* err) {
+    uint8_t img_data[MVHD_SECTOR_SIZE] = {0};
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     MVHDMeta* vhdm = calloc(1, sizeof *vhdm);
     if (vhdm == NULL) {
         *err = MVHD_ERR_MEM;
         goto end;
     }
-    if (geom.cyl == 0 || geom.heads == 0 || geom.spt == 0) {
+    if (raw_img == NULL && geom == NULL) {
+        *err = MVHD_ERR_INVALID_GEOM;
+        goto cleanup_vhdm;
+    }
+    if (geom != NULL && (geom->cyl == 0 || geom->heads == 0 || geom->spt == 0)) {
         *err = MVHD_ERR_INVALID_GEOM;
         goto cleanup_vhdm;
     }
@@ -194,13 +211,34 @@ MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, volatile int* pos, 
         goto cleanup_vhdm;
     }
     fseeko64(f, 0, SEEK_SET);
-    mvhd_gen_footer(&vhdm->footer, &geom, MVHD_TYPE_FIXED, 0);
-    uint32_t size_sectors = mvhd_calc_size_sectors(&geom);
-    for (uint32_t s = 0; s < size_sectors; s++) {
-        if (pos != NULL) {
-            *pos = (int)s;
+    uint32_t size_sectors, s;
+    if (raw_img != NULL) {
+        fseeko64(raw_img, 0, SEEK_END);
+        uint64_t raw_size = (uint64_t)ftello64(raw_img);
+        MVHDGeom raw_geom = mvhd_calculate_geometry(raw_size);
+        if (mvhd_calc_size_bytes(&raw_geom) != raw_size) {
+            *err = MVHD_ERR_CONV_SIZE;
+            goto cleanup_vhdm;
         }
-        fwrite(zero_data, sizeof zero_data, 1, f);
+        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);
+        size_sectors = mvhd_calc_size_sectors(geom);
+        fseeko64(raw_img, 0, SEEK_SET);
+        for (s = 0; s < size_sectors; s++) {
+            if (pos != NULL) {
+                *pos = (int)s;
+            }
+            fread(img_data, sizeof img_data, 1, raw_img);
+            fwrite(img_data, sizeof img_data, 1, f);
+        }
+    } else {
+        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);
+        size_sectors = mvhd_calc_size_sectors(geom);
+        for (s = 0; s < size_sectors; s++) {
+            if (pos != NULL) {
+                *pos = (int)s;
+            }
+            fwrite(img_data, sizeof img_data, 1, f);
+        }
     }
     mvhd_footer_to_buffer(&vhdm->footer, footer_buff);
     fwrite(footer_buff, sizeof footer_buff, 1, f);

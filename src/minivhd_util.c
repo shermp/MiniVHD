@@ -170,6 +170,8 @@ const char* mvhd_strerr(MVHDError err) {
         return "invalid geometry detected";
     case MVHD_ERR_INVALID_PARAMS:
         return "invalid parameters passed to function";
+    case MVHD_ERR_CONV_SIZE:
+        return "error converting image. Size mismatch detechted";
     default:
         return "unknown error";
     }

@@ -21,7 +21,8 @@ typedef enum MVHDError {
     MVHD_ERR_PAR_NOT_FOUND,
     MVHD_ERR_INVALID_PAR_UUID,
     MVHD_ERR_INVALID_GEOM,
-    MVHD_ERR_INVALID_PARAMS
+    MVHD_ERR_INVALID_PARAMS,
+    MVHD_ERR_CONV_SIZE
 } MVHDError;
 
 typedef struct MVHDGeom {
@@ -130,6 +131,39 @@ void mvhd_close(MVHDMeta* vhdm);
  * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
  */
 MVHDGeom mvhd_calculate_geometry(uint64_t size);
+
+/**
+ * \brief Convert a raw disk image to a fixed VHD image
+ * 
+ * \param [in] utf8_raw_path is the path of the raw image to convert
+ * \param [in] utf8_vhd_path is the path of the VHD to create
+ * \param [out] err indicates what error occurred, if any
+ * 
+ * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
+ */
+MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
+
+/**
+ * \brief Convert a raw disk image to a sparse VHD image
+ * 
+ * \param [in] utf8_raw_path is the path of the raw image to convert
+ * \param [in] utf8_vhd_path is the path of the VHD to create
+ * \param [out] err indicates what error occurred, if any
+ * 
+ * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
+ */
+MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
+
+/**
+ * \brief Convert a VHD image to a raw disk image
+ * 
+ * \param [in] utf8_vhd_path is the path of the VHD to convert
+ * \param [in] utf8_raw_path is the path of the raw image to create
+ * \param [out] err indicates what error occurred, if any
+ * 
+ * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns the raw disk image FILE pointer
+ */
+FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, int *err);
 
 /**
  * \brief Read sectors from VHD file
