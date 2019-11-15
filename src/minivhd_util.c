@@ -18,6 +18,65 @@ const char MVHD_CREATOR[] = "pcem";
 const char MVHD_CREATOR_HOST_OS[] = "Wi2k";
 const char MVHD_CXSPARSE_COOKIE[] = "cxsparse";
 
+uint16_t mvhd_from_be16(uint16_t val) {
+    uint8_t *tmp = (uint8_t*)&val;
+    uint16_t ret = 0;
+    ret |= (uint16_t)tmp[0] << 8;
+    ret |= (uint16_t)tmp[1] << 0;
+    return ret;
+}
+uint32_t mvhd_from_be32(uint32_t val) {
+    uint8_t *tmp = (uint8_t*)&val;
+    uint32_t ret = 0;
+    ret =  (uint32_t)tmp[0] << 24;
+    ret |= (uint32_t)tmp[1] << 16;
+    ret |= (uint32_t)tmp[2] << 8;
+    ret |= (uint32_t)tmp[3] << 0;
+    return ret;
+}
+uint64_t mvhd_from_be64(uint64_t val) {
+    uint8_t *tmp = (uint8_t*)&val;
+    uint64_t ret = 0;
+    ret =  (uint64_t)tmp[0] << 56;
+    ret |= (uint64_t)tmp[1] << 48;
+    ret |= (uint64_t)tmp[2] << 40;
+    ret |= (uint64_t)tmp[3] << 32;
+    ret |= (uint64_t)tmp[4] << 24;
+    ret |= (uint64_t)tmp[5] << 16;
+    ret |= (uint64_t)tmp[6] << 8;
+    ret |= (uint64_t)tmp[7] << 0;
+    return ret;
+}
+uint16_t mvhd_to_be16(uint16_t val) {
+    uint16_t ret = 0;
+    uint8_t *tmp = (uint8_t*)&ret;
+    tmp[0] = (val & 0xff00) >> 8;
+    tmp[1] = (val & 0x00ff) >> 0;
+    return ret;
+}
+uint32_t mvhd_to_be32(uint32_t val) {
+    uint32_t ret = 0;
+    uint8_t *tmp = (uint8_t*)&ret;
+    tmp[0] = (val & 0xff000000) >> 24;
+    tmp[1] = (val & 0x00ff0000) >> 16;
+    tmp[2] = (val & 0x0000ff00) >> 8;
+    tmp[3] = (val & 0x000000ff) >> 0;
+    return ret;
+}
+uint64_t mvhd_to_be64(uint64_t val) {
+    uint64_t ret = 0;
+    uint8_t *tmp = (uint8_t*)&ret;
+    tmp[0] = (val & 0xff00000000000000) >> 56;
+    tmp[1] = (val & 0x00ff000000000000) >> 48;
+    tmp[2] = (val & 0x0000ff0000000000) >> 40;
+    tmp[3] = (val & 0x000000ff00000000) >> 32;
+    tmp[4] = (val & 0x00000000ff000000) >> 24;
+    tmp[5] = (val & 0x0000000000ff0000) >> 16;
+    tmp[6] = (val & 0x000000000000ff00) >> 8;
+    tmp[7] = (val & 0x00000000000000ff) >> 0;
+    return ret;
+}
+
 bool mvhd_is_conectix_str(const void* buffer) {
     if (strncmp(buffer, MVHD_CONECTIX_COOKIE, strlen(MVHD_CONECTIX_COOKIE)) == 0) {
         return true;

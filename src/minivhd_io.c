@@ -5,7 +5,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "bswap.h"
 #include "minivhd_internal.h"
 #include "minivhd_util.h"
 
@@ -88,7 +87,7 @@ static void mvhd_write_curr_sect_bitmap(MVHDMeta* vhdm) {
  */
 static void mvhd_write_bat_entry(MVHDMeta* vhdm, int blk) {
     uint64_t table_offset = vhdm->sparse.bat_offset + (blk * sizeof *vhdm->block_offset);
-    uint32_t offset = cpu_to_be32(vhdm->block_offset[blk]);
+    uint32_t offset = mvhd_to_be32(vhdm->block_offset[blk]);
     fseeko64(vhdm->f, table_offset, SEEK_SET);
     fwrite(&offset, sizeof offset, 1, vhdm->f);
 }

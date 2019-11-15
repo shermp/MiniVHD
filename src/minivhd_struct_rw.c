@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "bswap.h"
+#include "minivhd_util.h"
 #include "minivhd_internal.h"
 
 /*  Read data from footer into the struct members, swapping endian where necessary
@@ -33,13 +33,13 @@ static void mvhd_next_buffer_to_struct(void* struct_memb, size_t memb_size, bool
     if (req_endian) {
         switch (memb_size) {
         case 2:
-            *(uint16_t*)(struct_memb) = be16_to_cpu(*(uint16_t*)(struct_memb));
+            *(uint16_t*)(struct_memb) = mvhd_from_be16(*(uint16_t*)(struct_memb));
             break;
         case 4:
-            *(uint32_t*)(struct_memb) = be32_to_cpu(*(uint32_t*)(struct_memb));
+            *(uint32_t*)(struct_memb) = mvhd_from_be32(*(uint32_t*)(struct_memb));
             break;
         case 8:
-            *(uint64_t*)(struct_memb) = be64_to_cpu(*(uint64_t*)(struct_memb));
+            *(uint64_t*)(struct_memb) = mvhd_from_be64(*(uint64_t*)(struct_memb));
             break;
         }
     }
@@ -60,13 +60,13 @@ static void mvhd_next_struct_to_buffer(void* struct_memb, size_t memb_size, bool
     if (req_endian) {
         switch (memb_size) {
         case 2:
-            *((uint16_t*)buf_ptr) = cpu_to_be16(*(uint16_t*)(struct_memb));
+            *((uint16_t*)buf_ptr) = mvhd_to_be16(*(uint16_t*)(struct_memb));
             break;
         case 4:
-            *((uint32_t*)buf_ptr) = cpu_to_be32(*(uint32_t*)(struct_memb));
+            *((uint32_t*)buf_ptr) = mvhd_to_be32(*(uint32_t*)(struct_memb));
             break;
         case 8:
-            *((uint64_t*)buf_ptr) = cpu_to_be64(*(uint64_t*)(struct_memb));
+            *((uint64_t*)buf_ptr) = mvhd_to_be64(*(uint64_t*)(struct_memb));
             break;
         }
     }

@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "bswap.h"
 #include "cwalk.h"
 #include "libxml2_encoding.h"
 #include "minivhd_internal.h"
@@ -104,7 +103,7 @@ static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
     fseeko64(vhdm->f, vhdm->sparse.bat_offset, SEEK_SET);
     for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
         fread(&vhdm->block_offset[i], sizeof *vhdm->block_offset, 1, vhdm->f);
-        vhdm->block_offset[i] = be32_to_cpu(vhdm->block_offset[i]);
+        vhdm->block_offset[i] = mvhd_from_be32(vhdm->block_offset[i]);
     }
     return 0;
 }

@@ -8,6 +8,16 @@
 #define MVHD_START_TS 946684800
 
 /**
+ * Functions to deal with endian issues
+ */
+uint16_t mvhd_from_be16(uint16_t val);
+uint32_t mvhd_from_be32(uint32_t val);
+uint64_t mvhd_from_be64(uint64_t val);
+uint16_t mvhd_to_be16(uint16_t val);
+uint32_t mvhd_to_be32(uint32_t val);
+uint64_t mvhd_to_be64(uint64_t val);
+
+/**
  * \brief Check if provided buffer begins with the string "conectix"
  * 
  * \param [in] buffer The buffer to compare. Must be at least 8 bytes in length
