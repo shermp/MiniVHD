@@ -20,8 +20,8 @@ static FILE* mvhd_open_existing_raw_img(const char* utf8_raw_path, MVHDGeom* geo
         *err = MVHD_ERR_INVALID_GEOM;
         return NULL;
     }
-    fseeko64(raw_img, 0, SEEK_END);
-    uint64_t size_bytes = (uint64_t)ftello64(raw_img);
+    mvhd_fseeko64(raw_img, 0, SEEK_END);
+    uint64_t size_bytes = (uint64_t)mvhd_ftello64(raw_img);
     MVHDGeom new_geom = mvhd_calculate_geometry(size_bytes);
     if (mvhd_calc_size_bytes(&new_geom) != size_bytes) {
         *err = MVHD_ERR_CONV_SIZE;
@@ -30,7 +30,7 @@ static FILE* mvhd_open_existing_raw_img(const char* utf8_raw_path, MVHDGeom* geo
     geom->cyl = new_geom.cyl;
     geom->heads = new_geom.heads;
     geom->spt = new_geom.spt;
-    fseeko64(raw_img, 0, SEEK_SET);
+    mvhd_fseeko64(raw_img, 0, SEEK_SET);
     return raw_img;
 }
 
@@ -41,7 +41,7 @@ MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_
         return NULL;
     }
     int pos;
-    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, &pos, err);
+    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, &pos, err, NULL);
     if (vhdm == NULL) {
         return NULL;
     }
@@ -54,7 +54,7 @@ MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8
     if (raw_img == NULL) {
         return NULL;
     }
-    vhdm = mvhd_create_sparse(utf8_vhd_path, geom, err);
+    vhdm = mvhd_create_sparse(utf8_vhd_path, geom, err, NULL);
     if (vhdm == NULL) {
         goto end;
     }
@@ -100,6 +100,6 @@ FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, 
         fwrite(buff, MVHD_SECTOR_SIZE, copy_sect, raw_img);
     }
     mvhd_close(vhdm);
-    fseeko64(raw_img, 0, SEEK_SET);
+    mvhd_fseeko64(raw_img, 0, SEEK_SET);
     return raw_img;
 }

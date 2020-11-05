@@ -33,6 +33,8 @@ typedef struct MVHDGeom {
 
 typedef struct MVHDMeta MVHDMeta;
 
+typedef void (*mvhd_progress_callback_t)(int64_t progress);
+
 /**
  * \brief Output a string from a MiniVHD error number
  * 
@@ -79,11 +81,12 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
  * \param [in] geom is the HDD geometry of the image to create. Determines final image size
  * \param [out] pos stores the current sector being written to disk
  * \param [out] err indicates what error occurred, if any
+ * \param [out] progress_callback optional; if not NULL, gets called to indicate progress on the creation operation
  * 
  * \retval 0 if success
  * \retval < 0 if an error occurrs. Check value of *err for actual error
  */
-MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err);
+MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err, mvhd_progress_callback_t progress_callback);
 
 /**
  * \brief Create sparse (dynamic) VHD image.
@@ -91,10 +94,11 @@ MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err)
  * \param [in] path is the absolute path to the VHD file to create
  * \param [in] geom is the HDD geometry of the image to create. Determines final image size
  * \param [out] err indicates what error occurred, if any
+ * \param [out] progress_callback optional; if not NULL, gets called to indicate progress on the creation operation
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
+MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback_t progress_callback);
 
 /**
  * \brief Create differencing VHD imagee.
@@ -102,10 +106,11 @@ MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
  * \param [in] path is the absolute path to the VHD file to create
  * \param [in] par_path is the absolute path to a parent image. If NULL, a sparse image is created, otherwise create a differencing image
  * \param [out] err indicates what error occurred, if any
+ * \param [out] progress_callback optional; if not NULL, gets called to indicate progress on the creation operation
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
+MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err, mvhd_progress_callback_t progress_callback);
 
 /**
  * \brief Safely close a VHD image
