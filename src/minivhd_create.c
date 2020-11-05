@@ -18,8 +18,8 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
                             const char* child_path, 
                             const char* par_path, 
                             uint64_t start_offset, 
-                            mvhd_utf16* w2ku_path,
-                            mvhd_utf16* w2ru_path,
+                            mvhd_utf16* w2ku_path_buff,
+                            mvhd_utf16* w2ru_path_buff,
                             MVHDError* err);
 static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err);
 
@@ -73,8 +73,8 @@ static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, 
  * \param [in] child_path is the full path to the VHD being created
  * \param [in] par_path is the full path to the parent image
  * \param [in] start_offset is the absolute file offset from where to start storing the entries themselves. Must be sector aligned.
- * \param [out] w2ku_buffer is a buffer containing the full path to the parent, encoded as UTF16-LE
- * \param [out] w2ru_buffer is a buffer containing the relative path to the parent, encoded as UTF16-LE
+ * \param [out] w2ku_path_buff is a buffer containing the full path to the parent, encoded as UTF16-LE
+ * \param [out] w2ru_path_buff is a buffer containing the relative path to the parent, encoded as UTF16-LE
  * \param [out] err indicates what error occurred, if any
  * 
  * \retval 0 if success
@@ -84,8 +84,8 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
                             const char* child_path, 
                             const char* par_path, 
                             uint64_t start_offset, 
-                            mvhd_utf16* w2ku_path,
-                            mvhd_utf16* w2ru_path,
+                            mvhd_utf16* w2ku_path_buff,
+                            mvhd_utf16* w2ru_path_buff,
                             MVHDError* err) {
     /* Get our paths to store in the differencing VHD. We want both the absolute path to the parent,
        as well as the relative path from the child VHD */
@@ -123,16 +123,16 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
     
     /* And encode the paths to UTF16-LE */
     size_t par_path_len = strlen(par_path);
-    outlen = sizeof *w2ku_path * MVHD_MAX_PATH_CHARS;
-    utf_ret = UTF8ToUTF16LE((unsigned char*)w2ku_path, &outlen, (const unsigned char*)par_path, (int*)&par_path_len);
+    outlen = sizeof *w2ku_path_buff * MVHD_MAX_PATH_CHARS;
+    utf_ret = UTF8ToUTF16LE((unsigned char*)w2ku_path_buff, &outlen, (const unsigned char*)par_path, (int*)&par_path_len);
     if (utf_ret < 0) {
         mvhd_set_encoding_err(utf_ret, (int*)err);
         rv = -1;
         goto end;
     }
     int w2ku_len = utf_ret;
-    outlen = sizeof *w2ru_path * MVHD_MAX_PATH_CHARS;
-    utf_ret = UTF8ToUTF16LE((unsigned char*)w2ru_path, &outlen, (const unsigned char*)rel_path, (int*)&rel_len);
+    outlen = sizeof *w2ru_path_buff * MVHD_MAX_PATH_CHARS;
+    utf_ret = UTF8ToUTF16LE((unsigned char*)w2ru_path_buff, &outlen, (const unsigned char*)rel_path, (int*)&rel_len);
     if (utf_ret < 0) {
         mvhd_set_encoding_err(utf_ret, (int*)err);
         rv = -1;
@@ -252,8 +252,8 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
     memset(bat_sect, 0xffffffff, sizeof bat_sect);
     MVHDMeta* vhdm = NULL;
     MVHDMeta* par_vhdm = NULL;
-    mvhd_utf16* w2ku_path = NULL;
-    mvhd_utf16* w2ru_path = NULL;
+    mvhd_utf16* w2ku_path_buff = NULL;
+    mvhd_utf16* w2ru_path_buff = NULL;
 
     if (par_path != NULL) {
         par_vhdm = mvhd_open(par_path, true, err);
@@ -322,19 +322,19 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
          * The paths are not stored directly in the sparse header, hence the need to
          * store them in buffers to be written to the VHD image later
          */
-        w2ku_path = calloc(MVHD_MAX_PATH_CHARS, sizeof * w2ku_path);
-        if (w2ku_path == NULL) {
+        w2ku_path_buff = calloc(MVHD_MAX_PATH_CHARS, sizeof * w2ku_path_buff);
+        if (w2ku_path_buff == NULL) {
             *err = MVHD_ERR_MEM;            
             goto end;
         }
-        w2ru_path = calloc(MVHD_MAX_PATH_CHARS, sizeof * w2ru_path);
-        if (w2ru_path == NULL) {
+        w2ru_path_buff = calloc(MVHD_MAX_PATH_CHARS, sizeof * w2ru_path_buff);
+        if (w2ru_path_buff == NULL) {
             *err = MVHD_ERR_MEM;            
             goto end;
         }
         memcpy(vhdm->sparse.par_uuid, par_vhdm->footer.uuid, sizeof vhdm->sparse.par_uuid);
         par_loc_offset = bat_offset + ((uint64_t)num_bat_sect * MVHD_SECTOR_SIZE) + (5 * MVHD_SECTOR_SIZE);
-        if (mvhd_gen_par_loc(&vhdm->sparse, path, par_path, par_loc_offset, w2ku_path, w2ru_path, (MVHDError*)err) < 0) {
+        if (mvhd_gen_par_loc(&vhdm->sparse, path, par_path, par_loc_offset, w2ku_path_buff, w2ru_path_buff, (MVHDError*)err) < 0) {
             goto cleanup_vhdm;
         }
     }
@@ -363,9 +363,9 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         }
         /* Now write the location entries */
         mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[0].plat_data_offset, SEEK_SET);
-        fwrite(w2ku_path, vhdm->sparse.par_loc_entry[0].plat_data_len, 1, f);
+        fwrite(w2ku_path_buff, vhdm->sparse.par_loc_entry[0].plat_data_len, 1, f);
         mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[1].plat_data_offset, SEEK_SET);
-        fwrite(w2ru_path, vhdm->sparse.par_loc_entry[1].plat_data_len, 1, f);
+        fwrite(w2ru_path_buff, vhdm->sparse.par_loc_entry[1].plat_data_len, 1, f);
         /* and reset the file position to continue */
         mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[1].plat_data_offset + ((uint64_t)(vhdm->sparse.par_loc_entry[1].plat_data_space) * MVHD_SECTOR_SIZE), SEEK_SET);
         mvhd_write_empty_sectors(f, 5);
@@ -385,11 +385,9 @@ cleanup_par_vhdm:
     if (par_vhdm != NULL) {
         mvhd_close(par_vhdm);
     }
-end:
-    if (w2ku_path != NULL)
-        free(w2ku_path);
-    if (w2ru_path != NULL)
-        free(w2ru_path);    
+end:    
+    free(w2ku_path_buff);    
+    free(w2ru_path_buff);    
     return vhdm;
 }
 
