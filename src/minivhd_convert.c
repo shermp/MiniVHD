@@ -39,9 +39,8 @@ MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_
     FILE *raw_img = mvhd_open_existing_raw_img(utf8_raw_path, &geom, err);
     if (raw_img == NULL) {
         return NULL;
-    }
-    int pos;
-    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, &pos, err, NULL);
+    }    
+    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, err, NULL);
     if (vhdm == NULL) {
         return NULL;
     }
@@ -54,7 +53,7 @@ MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8
     if (raw_img == NULL) {
         return NULL;
     }
-    vhdm = mvhd_create_sparse(utf8_vhd_path, geom, err, NULL);
+    vhdm = mvhd_create_sparse(utf8_vhd_path, geom, err);
     if (vhdm == NULL) {
         goto end;
     }

@@ -21,7 +21,7 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
                             mvhd_utf16* w2ku_path,
                             mvhd_utf16* w2ru_path,
                             MVHDError* err);
-static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err, mvhd_progress_callback_t progress_callback);
+static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err);
 
 /**
  * \brief Populate a VHD footer
@@ -158,8 +158,8 @@ end:
     return rv;
 }
 
-MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err, mvhd_progress_callback_t progress_callback) {
-    return mvhd_create_fixed_raw(path, NULL, &geom, pos, err, progress_callback);
+MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback) {
+    return mvhd_create_fixed_raw(path, NULL, &geom, err, progress_callback);
 }
 
 /**
@@ -170,7 +170,7 @@ MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* pos, int* err,
  * 
  * \param [in] raw_image file handle to a raw disk image to populate VHD
  */
-MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, int* pos, int* err, mvhd_progress_callback_t progress_callback) {    
+MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, int* err, mvhd_progress_callback progress_callback) {    
     uint8_t img_data[MVHD_SECTOR_SIZE] = {0};
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     MVHDMeta* vhdm = calloc(1, sizeof *vhdm);
@@ -191,9 +191,10 @@ MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom,
         goto cleanup_vhdm;
     }
     mvhd_fseeko64(f, 0, SEEK_SET);
-    uint32_t size_sectors, s;
+    uint32_t size_sectors = mvhd_calc_size_sectors(geom);
+    uint32_t s;
     if (progress_callback)
-        progress_callback(0);
+        progress_callback(0, size_sectors);
     if (raw_img != NULL) {
         mvhd_fseeko64(raw_img, 0, SEEK_END);
         uint64_t raw_size = (uint64_t)mvhd_ftello64(raw_img);
@@ -202,28 +203,20 @@ MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom,
             *err = MVHD_ERR_CONV_SIZE;
             goto cleanup_vhdm;
         }
-        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);
-        size_sectors = mvhd_calc_size_sectors(geom);
+        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);        
         mvhd_fseeko64(raw_img, 0, SEEK_SET);
-        for (s = 0; s < size_sectors; s++) {
-            if (pos != NULL) {
-                *pos = (int)s;
-            }
+        for (s = 0; s < size_sectors; s++) {            
             fread(img_data, sizeof img_data, 1, raw_img);
             fwrite(img_data, sizeof img_data, 1, f);
             if (progress_callback)
-                progress_callback(s);
+                progress_callback(s + 1, size_sectors);
         }
     } else {
-        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);
-        size_sectors = mvhd_calc_size_sectors(geom);
-        for (s = 0; s < size_sectors; s++) {
-            if (pos != NULL) {
-                *pos = (int)s;
-            }
+        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);        
+        for (s = 0; s < size_sectors; s++) {            
             fwrite(img_data, sizeof img_data, 1, f);
             if (progress_callback)
-                progress_callback(s);
+                progress_callback(s + 1, size_sectors);
         }
     }
     mvhd_footer_to_buffer(&vhdm->footer, footer_buff);
@@ -251,7 +244,7 @@ end:
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err, mvhd_progress_callback_t progress_callback) {
+static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err) {
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     uint8_t sparse_buff[MVHD_SPARSE_SIZE] = {0};
     uint8_t bat_sect[MVHD_SECTOR_SIZE];
@@ -285,10 +278,8 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
     } else if (geom == NULL) {
         *err = MVHD_ERR_INVALID_GEOM;
         goto cleanup_vhdm;
-    }
+    }    
     
-    if (progress_callback)
-        progress_callback(0);
     FILE* f = mvhd_fopen(path, "wb+", err);
     if (f == NULL) {
         goto cleanup_vhdm;
@@ -398,16 +389,14 @@ end:
     if (w2ku_path != NULL)
         free(w2ku_path);
     if (w2ru_path != NULL)
-        free(w2ru_path);
-    if (progress_callback)
-        progress_callback(mvhd_calc_size_sectors(geom) - 1);
+        free(w2ru_path);    
     return vhdm;
 }
 
-MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback_t progress_callback) {
-    return mvhd_create_sparse_diff(path, NULL, &geom, err, progress_callback);
+MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err) {
+    return mvhd_create_sparse_diff(path, NULL, &geom, err);
 }
 
-MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err, mvhd_progress_callback_t progress_callback) {
-    return mvhd_create_sparse_diff(path, par_path, NULL, err, progress_callback);
+MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err) {
+    return mvhd_create_sparse_diff(path, par_path, NULL, err);
 }
