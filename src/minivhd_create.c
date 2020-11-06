@@ -150,7 +150,7 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
     header->par_loc_entry[0].plat_data_space = (header->par_loc_entry[0].plat_data_len / MVHD_SECTOR_SIZE) + 1;
     header->par_loc_entry[1].plat_code = MVHD_DIF_LOC_W2RU;
     header->par_loc_entry[1].plat_data_len = (uint32_t)w2ru_len;
-    header->par_loc_entry[1].plat_data_offset = (uint64_t)start_offset + header->par_loc_entry[0].plat_data_space;
+    header->par_loc_entry[1].plat_data_offset = (uint64_t)start_offset + ((uint64_t)header->par_loc_entry[0].plat_data_space * MVHD_SECTOR_SIZE);
     header->par_loc_entry[1].plat_data_space = (header->par_loc_entry[1].plat_data_len / MVHD_SECTOR_SIZE) + 1;
     goto end;
 
