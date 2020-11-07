@@ -92,7 +92,7 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
     int rv = 0;
     char* par_filename;
     size_t par_fn_len;
-    char rel_path[MVHD_MAX_PATH_BYTES] = {0};
+    char rel_path[MVHD_MAX_PATH_BYTES] = {0};    
     char child_dir[MVHD_MAX_PATH_BYTES] = {0};
     size_t child_dir_len;
     if (strlen(child_path) < sizeof child_dir) {
@@ -110,18 +110,18 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
         *err = MVHD_ERR_PATH_LEN;
         rv = -1;
         goto end;
-    }
+    }    
     /* We have our paths, now store the parent filename directly in the sparse header. */
-    int outlen = sizeof header->par_utf16_name;
+    int outlen = sizeof header->par_utf16_name;    
     int utf_ret;
-    utf_ret = UTF8ToUTF16BE((unsigned char*)header->par_utf16_name, &outlen, (const unsigned char*)par_filename, (int*)&par_fn_len);
+    utf_ret = UTF8ToUTF16BE((unsigned char*)header->par_utf16_name, &outlen, (const unsigned char*)par_filename, (int*)&par_fn_len);    
     if (utf_ret < 0) {
         mvhd_set_encoding_err(utf_ret, (int*)err);
         rv = -1;
         goto end;
     }
     
-    /* And encode the paths to UTF16-LE */
+    /* And encode the paths to UTF16-LE */    
     size_t par_path_len = strlen(par_path);
     outlen = sizeof *w2ku_path_buff * MVHD_MAX_PATH_CHARS;
     utf_ret = UTF8ToUTF16LE((unsigned char*)w2ku_path_buff, &outlen, (const unsigned char*)par_path, (int*)&par_path_len);
@@ -131,7 +131,7 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
         goto end;
     }
     int w2ku_len = utf_ret;
-    outlen = sizeof *w2ru_path_buff * MVHD_MAX_PATH_CHARS;
+    outlen = sizeof *w2ru_path_buff * MVHD_MAX_PATH_CHARS;    
     utf_ret = UTF8ToUTF16LE((unsigned char*)w2ru_path_buff, &outlen, (const unsigned char*)rel_path, (int*)&rel_len);
     if (utf_ret < 0) {
         mvhd_set_encoding_err(utf_ret, (int*)err);
@@ -144,14 +144,20 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
      * This is the information needed to find the paths saved elsewhere
      * in the VHD image 
      */
+
+    /* Note about the plat_data_space field: The VHD spec says this field stores the number of sectors needed to store the locator path.
+     * However, Hyper-V and VPC store the number of bytes, not the number of sectors, and will refuse to open VHDs which have the 
+     * number of sectors in this field.
+     * See https://stackoverflow.com/questions/40760181/mistake-in-virtual-hard-disk-image-format-specification 
+     */
     header->par_loc_entry[0].plat_code = MVHD_DIF_LOC_W2KU;
     header->par_loc_entry[0].plat_data_len = (uint32_t)w2ku_len;
     header->par_loc_entry[0].plat_data_offset = (uint64_t)start_offset;
-    header->par_loc_entry[0].plat_data_space = (header->par_loc_entry[0].plat_data_len / MVHD_SECTOR_SIZE) + 1;
+    header->par_loc_entry[0].plat_data_space = ((header->par_loc_entry[0].plat_data_len / MVHD_SECTOR_SIZE) + 1) * MVHD_SECTOR_SIZE;
     header->par_loc_entry[1].plat_code = MVHD_DIF_LOC_W2RU;
     header->par_loc_entry[1].plat_data_len = (uint32_t)w2ru_len;
-    header->par_loc_entry[1].plat_data_offset = (uint64_t)start_offset + ((uint64_t)header->par_loc_entry[0].plat_data_space * MVHD_SECTOR_SIZE);
-    header->par_loc_entry[1].plat_data_space = (header->par_loc_entry[1].plat_data_len / MVHD_SECTOR_SIZE) + 1;
+    header->par_loc_entry[1].plat_data_offset = (uint64_t)start_offset + ((uint64_t)header->par_loc_entry[0].plat_data_space);
+    header->par_loc_entry[1].plat_data_space = ((header->par_loc_entry[1].plat_data_len / MVHD_SECTOR_SIZE) + 1) * MVHD_SECTOR_SIZE;
     goto end;
 
 end:
@@ -357,7 +363,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         /* Fill the space required for location data with zero */
         uint8_t empty_sect[MVHD_SECTOR_SIZE] = {0};
         for (int i = 0; i < 2; i++) {
-            for (uint32_t j = 0; j < vhdm->sparse.par_loc_entry[i].plat_data_space; j++) {
+            for (uint32_t j = 0; j < (vhdm->sparse.par_loc_entry[i].plat_data_space / MVHD_SECTOR_SIZE); j++) {
                 fwrite(empty_sect, sizeof empty_sect, 1, f);
             }
         }
@@ -367,7 +373,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[1].plat_data_offset, SEEK_SET);
         fwrite(w2ru_path_buff, vhdm->sparse.par_loc_entry[1].plat_data_len, 1, f);
         /* and reset the file position to continue */
-        mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[1].plat_data_offset + ((uint64_t)(vhdm->sparse.par_loc_entry[1].plat_data_space) * MVHD_SECTOR_SIZE), SEEK_SET);
+        mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[1].plat_data_offset + vhdm->sparse.par_loc_entry[1].plat_data_space, SEEK_SET);
         mvhd_write_empty_sectors(f, 5);
     }
     /* And finish with the footer */
