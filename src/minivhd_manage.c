@@ -42,7 +42,7 @@ static int mvhd_init_sector_bitmap(MVHDMeta* vhdm, MVHDError* err);
  */
 static void mvhd_read_footer(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_FOOTER_SIZE];
-    fseeko64(vhdm->f, -MVHD_FOOTER_SIZE, SEEK_END);
+    mvhd_fseeko64(vhdm->f, -MVHD_FOOTER_SIZE, SEEK_END);
     fread(buffer, sizeof buffer, 1, vhdm->f);
     mvhd_buffer_to_footer(&vhdm->footer, buffer);
 }
@@ -54,7 +54,7 @@ static void mvhd_read_footer(MVHDMeta* vhdm) {
  */
 static void mvhd_read_sparse_header(MVHDMeta* vhdm) {
     uint8_t buffer[MVHD_SPARSE_SIZE];
-    fseeko64(vhdm->f, vhdm->footer.data_offset, SEEK_SET);
+    mvhd_fseeko64(vhdm->f, vhdm->footer.data_offset, SEEK_SET);
     fread(buffer, sizeof buffer, 1, vhdm->f);
     mvhd_buffer_to_header(&vhdm->sparse, buffer);
 }
@@ -100,7 +100,7 @@ static int mvhd_read_bat(MVHDMeta *vhdm, MVHDError* err) {
         *err = MVHD_ERR_MEM;
         return -1;
     }
-    fseeko64(vhdm->f, vhdm->sparse.bat_offset, SEEK_SET);
+    mvhd_fseeko64(vhdm->f, vhdm->sparse.bat_offset, SEEK_SET);
     for (uint32_t i = 0; i < vhdm->sparse.max_bat_ent; i++) {
         fread(&vhdm->block_offset[i], sizeof *vhdm->block_offset, 1, vhdm->f);
         vhdm->block_offset[i] = mvhd_from_be32(vhdm->block_offset[i]);
@@ -171,7 +171,7 @@ static bool mvhd_parent_path_exists(struct MVHDPaths* paths, uint32_t plat_code)
     if (plat_code == MVHD_DIF_LOC_W2RU && *paths->w2ru_path) {
         cwk_ret = cwk_path_join((const char*)paths->dir_path, (const char*)paths->w2ru_path, paths->joined_path, sizeof paths->joined_path);
     } else if (plat_code == MVHD_DIF_LOC_W2KU && *paths->w2ku_path) {
-        strncpy(paths->joined_path, (const char*)paths->w2ku_path, sizeof paths->joined_path);
+        strncpy_s(paths->joined_path, sizeof paths->joined_path, (const char*)paths->w2ku_path, sizeof paths->joined_path);
         cwk_ret = 0;
     } else if (plat_code == 0) {
         cwk_ret = cwk_path_join((const char*)paths->dir_path, (const char*)paths->file_name, paths->joined_path, sizeof paths->joined_path);
@@ -182,7 +182,7 @@ static bool mvhd_parent_path_exists(struct MVHDPaths* paths, uint32_t plat_code)
     f = mvhd_fopen((const char*)paths->joined_path, "rb", &ferr);
     if (f != NULL) {
         /* We found a file at the requested path! */
-        strncpy(tmp_open_path, paths->joined_path, sizeof tmp_open_path);
+        strncpy_s(tmp_open_path, sizeof tmp_open_path, paths->joined_path, sizeof tmp_open_path);
         fclose(f);
         return true;
     } else {
@@ -225,7 +225,7 @@ static char* mvhd_get_diff_parent_path(MVHDMeta* vhdm, int* err) {
         *err = MVHD_ERR_PATH_LEN;
         goto paths_cleanup;
     }
-    strncpy(paths->dir_path, vhdm->filename, dirlen);
+    strncpy_s(paths->dir_path, sizeof paths->dir_path, vhdm->filename, dirlen);
     /* Get the filename field from the sparse header. */
     utf_outlen = (int)sizeof paths->file_name;
     utf_inlen = (int)sizeof vhdm->sparse.par_utf16_name;
@@ -250,7 +250,7 @@ static char* mvhd_get_diff_parent_path(MVHDMeta* vhdm, int* err) {
             *err = MVHD_ERR_PATH_LEN;
             goto paths_cleanup;
         }
-        fseeko64(vhdm->f, vhdm->sparse.par_loc_entry[i].plat_data_offset, SEEK_SET);
+        mvhd_fseeko64(vhdm->f, vhdm->sparse.par_loc_entry[i].plat_data_offset, SEEK_SET);
         fread(paths->tmp_src_path, sizeof (uint8_t), utf_inlen, vhdm->f);
         /* Note, the W2*u parent locators are UTF-16LE, unlike the filename field previously obtained, 
            which is UTF-16BE */
@@ -318,7 +318,7 @@ static void mvhd_assign_io_funcs(MVHDMeta* vhdm) {
 bool mvhd_file_is_vhd(FILE* f) {
     if (f) {
         uint8_t con_str[8];
-        fseeko64(f, -MVHD_FOOTER_SIZE, SEEK_END);
+        mvhd_fseeko64(f, -MVHD_FOOTER_SIZE, SEEK_END);
         fread(con_str, sizeof con_str, 1, f);
         return mvhd_is_conectix_str(con_str);
     } else {
@@ -328,13 +328,12 @@ bool mvhd_file_is_vhd(FILE* f) {
 
 MVHDGeom mvhd_calculate_geometry(uint64_t size) {
     MVHDGeom chs;
-    uint32_t ts = size / MVHD_SECTOR_SIZE;
+    uint32_t ts = (uint32_t)(size / MVHD_SECTOR_SIZE);
     uint32_t spt, heads, cyl, cth;
     if (ts > 65535 * 16 * 255) {
         ts = 65535 * 16 * 255;
     }
-    if (ts >= 65535 * 16 * 63) {
-        ts = 65535 * 16 * 63;
+    if (ts >= 65535 * 16 * 63) {       
         spt = 255;
         heads = 16;
         cth = ts / spt;
@@ -364,7 +363,7 @@ MVHDGeom mvhd_calculate_geometry(uint64_t size) {
 }
 
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
-    int open_err;
+    MVHDError open_err;
     MVHDMeta *vhdm = calloc(sizeof *vhdm, 1);
     if (vhdm == NULL) {
         *err = MVHD_ERR_MEM;
@@ -374,7 +373,7 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
         *err = MVHD_ERR_PATH_LEN;
         goto cleanup_vhdm;
     }
-    strcpy(vhdm->filename, path);
+    strcpy_s(vhdm->filename, sizeof vhdm->filename, path);
     vhdm->f = readonly ? mvhd_fopen((const char*)vhdm->filename, "rb", err) : mvhd_fopen((const char*)vhdm->filename, "rb+", err);
     if (vhdm->f == NULL) {
         /* note, mvhd_fopen sets err for us */
@@ -475,19 +474,20 @@ void mvhd_close(MVHDMeta* vhdm) {
     }
 }
 
-int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
+int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff) {
     return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
 }
 
-int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
+int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff) {
     return vhdm->write_sectors(vhdm, offset, num_sectors, in_buff);
 }
 
-int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors) {
+int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors) {
     int num_full = num_sectors / vhdm->format_buffer.sector_count;
     int remain = num_sectors % vhdm->format_buffer.sector_count;
     for (int i = 0; i < num_full; i++) {
         vhdm->write_sectors(vhdm, offset, vhdm->format_buffer.sector_count, vhdm->format_buffer.zero_data);
+        offset += vhdm->format_buffer.sector_count;
     }
     vhdm->write_sectors(vhdm, offset, remain, vhdm->format_buffer.zero_data);
     return 0;

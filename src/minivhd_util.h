@@ -68,6 +68,7 @@ FILE* mvhd_fopen(const char* path, const char* mode, int* err);
 void mvhd_set_encoding_err(int encoding_retval, int* err);
 uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
 uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
+MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
 
 /**
  * \brief Generate VHD footer checksum
@@ -82,4 +83,30 @@ uint32_t mvhd_gen_footer_checksum(MVHDFooter* footer);
  * \param [in] vhdm MiniVHD data structure
  */
 uint32_t mvhd_gen_sparse_checksum(MVHDSparseHeader* header);
+
+/**
+ * \brief Get current position in file stream
+ * 
+ * This is a portable version of the POSIX ftello64(). * 
+ */
+int64_t mvhd_ftello64(FILE* stream);
+
+/**
+ * \brief Reposition the file stream's position
+ * 
+ * This is a portable version of the POSIX fseeko64(). * 
+ */
+int mvhd_fseeko64(FILE* stream, int64_t offset, int origin);
+
+/**
+ * \brief Calculate the CRC32 of a data buffer.
+ * 
+ * This function can be used for verifying data integrity.
+ * 
+ * \param [in] data The data buffer
+ * \param [in] n_bytes The size of the data buffer in bytes
+ * 
+ * \return The CRC32 of the data buffer
+ */
+uint32_t mvhd_crc32(const void* data, size_t n_bytes);
 #endif
