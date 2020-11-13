@@ -328,18 +328,19 @@ bool mvhd_file_is_vhd(FILE* f) {
 
 MVHDGeom mvhd_calculate_geometry(uint64_t size) {
     MVHDGeom chs;
-    uint32_t ts = (uint32_t)(size / MVHD_SECTOR_SIZE);
+    uint64_t ts = size / MVHD_SECTOR_SIZE;
     uint32_t spt, heads, cyl, cth;
     if (ts > 65535 * 16 * 255) {
         ts = 65535 * 16 * 255;
     }
-    if (ts >= 65535 * 16 * 63) {       
+    if (ts >= 65535 * 16 * 63) {
+        ts = 65535 * 16 * 63;
         spt = 255;
         heads = 16;
-        cth = ts / spt;
+        cth = (uint32_t)ts / spt;
     } else {
         spt = 17;
-        cth = ts / spt;
+        cth = (uint32_t)ts / spt;
         heads = (cth + 1023) / 1024;
         if (heads < 4) {
             heads = 4;
@@ -347,12 +348,12 @@ MVHDGeom mvhd_calculate_geometry(uint64_t size) {
         if (cth >= (heads * 1024) || heads > 16) {
             spt = 31;
             heads = 16;
-            cth = ts / spt;
+            cth = (uint32_t)ts / spt;
         }
         if (cth >= (heads * 1024)) {
             spt = 63;
             heads = 16;
-            cth = ts / spt;
+            cth = (uint32_t)ts / spt;
         }
     }
     cyl = cth / heads;
@@ -474,20 +475,19 @@ void mvhd_close(MVHDMeta* vhdm) {
     }
 }
 
-int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff) {
+int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
     return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
 }
 
-int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff) {
+int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
     return vhdm->write_sectors(vhdm, offset, num_sectors, in_buff);
 }
 
-int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors) {
+int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors) {
     int num_full = num_sectors / vhdm->format_buffer.sector_count;
     int remain = num_sectors % vhdm->format_buffer.sector_count;
     for (int i = 0; i < num_full; i++) {
         vhdm->write_sectors(vhdm, offset, vhdm->format_buffer.sector_count, vhdm->format_buffer.zero_data);
-        offset += vhdm->format_buffer.sector_count;
     }
     vhdm->write_sectors(vhdm, offset, remain, vhdm->format_buffer.zero_data);
     return 0;

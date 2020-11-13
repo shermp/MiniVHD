@@ -15,7 +15,7 @@
 #define VHD_CLEARBIT(A,k)   ( A[(k/8)] &= ~(0x80 >> (k%8)) )
 #define VHD_TESTBIT(A,k)    ( A[(k/8)] & (0x80 >> (k%8)) )
 
-static inline void mvhd_check_sectors(uint32_t offset, int num_sectors, uint32_t total_sectors, int* transfer_sect, int* trunc_sect);
+static inline void mvhd_check_sectors(int offset, int num_sectors, int total_sectors, int* transfer_sect, int* trunc_sect);
 static void mvhd_read_sect_bitmap(MVHDMeta* vhdm, int blk);
 static void mvhd_write_bat_entry(MVHDMeta* vhdm, int blk);
 static void mvhd_create_block(MVHDMeta* vhdm, int blk);
@@ -31,10 +31,10 @@ static void mvhd_write_curr_sect_bitmap(MVHDMeta* vhdm);
  * This may be lower than num_sectors if offset + num_sectors >= total_sectors
  * \param [out] trunc_sectors The number of sectors truncated if transfer_sectors < num_sectors
  */
-static inline void mvhd_check_sectors(uint32_t offset, int num_sectors, uint32_t total_sectors, int* transfer_sect, int* trunc_sect) {
+static inline void mvhd_check_sectors(int offset, int num_sectors, int total_sectors, int* transfer_sect, int* trunc_sect) {
     *transfer_sect = num_sectors;
     *trunc_sect = 0;
-    if ((total_sectors - offset) < (uint32_t)*transfer_sect) {
+    if ((total_sectors - offset) < *transfer_sect) {
         *transfer_sect = total_sectors - offset;
         *trunc_sect = num_sectors - *transfer_sect;
     }
@@ -128,7 +128,7 @@ static void mvhd_create_block(MVHDMeta* vhdm, int blk) {
         }
         abs_offset += padding_amount;
     }
-    uint32_t sect_offset = (uint32_t)(abs_offset / MVHD_SECTOR_SIZE);
+    int sect_offset = (int)(abs_offset / MVHD_SECTOR_SIZE);
     int blk_size_sectors = vhdm->sparse.block_sz / MVHD_SECTOR_SIZE;
     mvhd_write_empty_sectors(vhdm->f, vhdm->bitmap.sector_count + blk_size_sectors);
     /* Add a bit of padding. That's what Windows appears to do, although it's not strictly necessary... */
@@ -140,10 +140,10 @@ static void mvhd_create_block(MVHDMeta* vhdm, int blk) {
     mvhd_write_bat_entry(vhdm, blk);
 }
 
-int mvhd_fixed_read(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff) {
+int mvhd_fixed_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
     int64_t addr;
     int transfer_sectors, truncated_sectors;
-    uint32_t total_sectors = (uint32_t)(vhdm->footer.curr_sz / MVHD_SECTOR_SIZE);
+    int total_sectors = vhdm->footer.geom.cyl * vhdm->footer.geom.heads * vhdm->footer.geom.spt;
     mvhd_check_sectors(offset, num_sectors, total_sectors, &transfer_sectors, &truncated_sectors);
     addr = (int64_t)offset * MVHD_SECTOR_SIZE;
     mvhd_fseeko64(vhdm->f, addr, SEEK_SET);
@@ -151,14 +151,13 @@ int mvhd_fixed_read(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_
     return truncated_sectors;
 }
 
-int mvhd_sparse_read(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff) {
+int mvhd_sparse_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
     int transfer_sectors, truncated_sectors;
-    uint32_t total_sectors = (uint32_t)(vhdm->footer.curr_sz / MVHD_SECTOR_SIZE);
+    int total_sectors = vhdm->footer.geom.cyl * vhdm->footer.geom.heads * vhdm->footer.geom.spt;
     mvhd_check_sectors(offset, num_sectors, total_sectors, &transfer_sectors, &truncated_sectors);
     uint8_t* buff = (uint8_t*)out_buff;
     int64_t addr;
-    uint32_t s, ls;
-    int blk, prev_blk, sib;
+    int s, ls, blk, prev_blk, sib;
     ls = offset + transfer_sectors;
     prev_blk = -1;
     for (s = offset; s < ls; s++) {
@@ -185,14 +184,13 @@ int mvhd_sparse_read(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out
     return truncated_sectors;
 }
 
-int mvhd_diff_read(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff) {
+int mvhd_diff_read(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff) {
     int transfer_sectors, truncated_sectors;
-    uint32_t total_sectors = (uint32_t)(vhdm->footer.curr_sz / MVHD_SECTOR_SIZE);
+    int total_sectors = vhdm->footer.geom.cyl * vhdm->footer.geom.heads * vhdm->footer.geom.spt;
     mvhd_check_sectors(offset, num_sectors, total_sectors, &transfer_sectors, &truncated_sectors);
     uint8_t* buff = (uint8_t*)out_buff;
     MVHDMeta* curr_vhdm = vhdm;
-    uint32_t s, ls;
-    int blk, sib;
+    int s, ls, blk, sib;
     ls = offset + transfer_sectors;
     for (s = offset; s < ls; s++) {
         while (curr_vhdm->footer.disk_type == MVHD_TYPE_DIFF) {
@@ -218,10 +216,10 @@ int mvhd_diff_read(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_b
     return truncated_sectors;
 }
 
-int mvhd_fixed_write(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff) {
+int mvhd_fixed_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
     int64_t addr;
     int transfer_sectors, truncated_sectors;
-    uint32_t total_sectors = (uint32_t)(vhdm->footer.curr_sz / MVHD_SECTOR_SIZE);
+    int total_sectors = vhdm->footer.geom.cyl * vhdm->footer.geom.heads * vhdm->footer.geom.spt;
     mvhd_check_sectors(offset, num_sectors, total_sectors, &transfer_sectors, &truncated_sectors);
     addr = (int64_t)offset * MVHD_SECTOR_SIZE;
     mvhd_fseeko64(vhdm->f, addr, SEEK_SET);
@@ -229,14 +227,13 @@ int mvhd_fixed_write(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_
     return truncated_sectors;
 }
 
-int mvhd_sparse_diff_write(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff) {
+int mvhd_sparse_diff_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
     int transfer_sectors, truncated_sectors;
-    uint32_t total_sectors = (uint32_t)(vhdm->footer.curr_sz / MVHD_SECTOR_SIZE);
+    int total_sectors = vhdm->footer.geom.cyl * vhdm->footer.geom.heads * vhdm->footer.geom.spt;
     mvhd_check_sectors(offset, num_sectors, total_sectors, &transfer_sectors, &truncated_sectors);
     uint8_t* buff = (uint8_t*)in_buff;
     int64_t addr;
-    uint32_t s, ls;
-    int blk, prev_blk, sib;
+    int s, ls, blk, prev_blk, sib;
     ls = offset + transfer_sectors;
     prev_blk = -1;
     for (s = offset; s < ls; s++) {
@@ -271,6 +268,6 @@ int mvhd_sparse_diff_write(MVHDMeta* vhdm, uint32_t offset, int num_sectors, voi
     return truncated_sectors;
 }
 
-int mvhd_noop_write(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff) {
+int mvhd_noop_write(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff) {
     return 0;
 }

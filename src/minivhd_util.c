@@ -225,10 +225,6 @@ const char* mvhd_strerr(MVHDError err) {
         return "UUID mismatch between child and parent VHD";
     case MVHD_ERR_INVALID_GEOM:
         return "invalid geometry detected";
-    case MVHD_ERR_INVALID_SIZE:
-        return "invalid size";
-    case MVHD_ERR_INVALID_BLOCK_SIZE:
-        return "invalid block size";
     case MVHD_ERR_INVALID_PARAMS:
         return "invalid parameters passed to function";
     case MVHD_ERR_CONV_SIZE:
