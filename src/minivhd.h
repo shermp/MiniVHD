@@ -21,9 +21,23 @@ typedef enum MVHDError {
     MVHD_ERR_PAR_NOT_FOUND,
     MVHD_ERR_INVALID_PAR_UUID,
     MVHD_ERR_INVALID_GEOM,
-    MVHD_ERR_INVALID_PARAMS,
+    MVHD_ERR_INVALID_SIZE,
+    MVHD_ERR_INVALID_BLOCK_SIZE,
+    MVHD_ERR_INVALID_PARAMS,    
     MVHD_ERR_CONV_SIZE
 } MVHDError;
+
+typedef enum MVHDType {
+    MVHD_TYPE_FIXED = 2,
+    MVHD_TYPE_DYNAMIC = 3,
+    MVHD_TYPE_DIFF = 4
+} MVHDType;
+
+typedef enum MVHDBlockSize {
+    MVHD_BLOCK_DEFAULT = 0,  /**< 2 MB blocks */
+    MVHD_BLOCK_SMALL = 1024, /**< 512 KB blocks */
+    MVHD_BLOCK_LARGE = 4096  /**< 2 MB blocks */
+} MVHDBlockSize;
 
 typedef struct MVHDGeom {
     uint16_t cyl;
@@ -31,9 +45,19 @@ typedef struct MVHDGeom {
     uint8_t spt;
 } MVHDGeom;
 
-typedef struct MVHDMeta MVHDMeta;
-
 typedef void (*mvhd_progress_callback)(uint32_t current_sector, uint32_t total_sectors);
+
+typedef struct MVHDCreationOptions {
+    int type; /** MVHD_TYPE_FIXED, MVHD_TYPE_DYNAMIC, or MVHD_TYPE_DIFF */
+    char* path; /** Absolute path of the new VHD file */
+    char* parent_path; /** For MVHD_TYPE_DIFF, this is the absolute path of the VHD's parent. For non-diff VHDs, this should be NULL. */
+    uint64_t size_in_bytes; /** Total size of the VHD's virtual disk in bytes. Must be a multiple of 512. If 0, the size is auto-calculated from the geometry field. Ignored for MVHD_TYPE_DIFF. */
+    MVHDGeom geometry; /** The geometry of the VHD. If set to 0, the geometry is auto-calculated from the size_in_bytes field. */
+    uint32_t block_size_in_sectors; /** MVHD_BLOCK_LARGE or MVHD_BLOCK_SMALL, or 0 for the default value. The number of sectors per block. */
+    mvhd_progress_callback progress_callback; /** Optional; if not NULL, gets called to indicate progress on the creation operation. Only applies to MVHD_TYPE_FIXED. */
+} MVHDCreationOptions;
+
+typedef struct MVHDMeta MVHDMeta;
 
 /**
  * \brief Output a string from a MiniVHD error number
@@ -80,10 +104,9 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
  * \param [in] path is the absolute path to the image to create
  * \param [in] geom is the HDD geometry of the image to create. Determines final image size
  * \param [out] err indicates what error occurred, if any
- * \param [out] progress_callback optional; if not NULL, gets called to indicate progress on the creation operation
+ * \param [out] progress_callback optional; if not NULL, gets called to indicate progress on the creation operation 
  * 
- * \retval 0 if success
- * \retval < 0 if an error occurrs. Check value of *err for actual error
+ * \retval NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
 MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback);
 
@@ -110,6 +133,18 @@ MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
 MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
 
 /**
+ * \brief Create a VHD using the provided options
+ *
+ * Use mvhd_create_ex if you want more control over the VHD's options. For quick creation, you can use mvhd_create_fixed, mvhd_create_sparse, or mvhd_create_diff.
+ *
+ * \param [in] options the VHD creation options.
+ * \param [out] err indicates what error occurred, if any
+ *
+ * \retval NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
+ */
+MVHDMeta* mvhd_create_ex(MVHDCreationOptions options, int* err);
+
+/**
  * \brief Safely close a VHD image
  * 
  * \param [in] vhdm MiniVHD data structure to close
@@ -122,7 +157,9 @@ void mvhd_close(MVHDMeta* vhdm);
  * The VHD format uses Cylinder, Heads, Sectors per Track (CHS) when accessing the disk.
  * The size of the disk can be determined from C * H * S * sector_size.
  * 
- * Note, maximum VHD size (in bytes) is 65535 * 16 * 255 * 512, which is 127GB
+ * Note, maximum geometry size (in bytes) is 65535 * 16 * 255 * 512, which is 127GB.
+ * However, the maximum VHD size is 2040GB. For VHDs larger than 127GB, the geometry size will be
+ * smaller than the actual VHD size.
  * 
  * This function determines the appropriate CHS geometry from a provided size in bytes.
  * The calculations used are those provided in "Appendix: CHS Calculation" from the document 
@@ -179,7 +216,7 @@ FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, 
  * 
  * \return the number of sectors that were not read, or zero
  */
-int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buff);
+int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff);
 
 /**
  * \brief Write sectors to VHD file
@@ -193,7 +230,7 @@ int mvhd_read_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* out_buf
  * 
  * \return the number of sectors that were not written, or zero
  */
-int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buff);
+int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff);
 
 /**
  * \brief Write zeroed sectors to VHD file
@@ -208,5 +245,5 @@ int mvhd_write_sectors(MVHDMeta* vhdm, int offset, int num_sectors, void* in_buf
  * 
  * \return the number of sectors that were not written, or zero
  */
-int mvhd_format_sectors(MVHDMeta* vhdm, int offset, int num_sectors);
+int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors);
 #endif

@@ -40,7 +40,8 @@ MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_
     if (raw_img == NULL) {
         return NULL;
     }    
-    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, &geom, err, NULL);
+    uint64_t size_in_bytes = mvhd_calc_size_bytes(&geom);
+    MVHDMeta *vhdm = mvhd_create_fixed_raw(utf8_vhd_path, raw_img, size_in_bytes, &geom, err, NULL);
     if (vhdm == NULL) {
         return NULL;
     }
