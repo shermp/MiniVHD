@@ -12,8 +12,8 @@
 #include "minivhd_create.h"
 #include "minivhd.h"
 
-static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off);
-static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset);
+static void mvhd_gen_footer(MVHDFooter* footer, uint64_t size_in_bytes, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off);
+static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset, uint32_t block_size_in_sectors);
 static int mvhd_gen_par_loc(MVHDSparseHeader* header, 
                             const char* child_path, 
                             const char* par_path, 
@@ -21,17 +21,18 @@ static int mvhd_gen_par_loc(MVHDSparseHeader* header,
                             mvhd_utf16* w2ku_path_buff,
                             mvhd_utf16* w2ru_path_buff,
                             MVHDError* err);
-static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err);
+static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, uint64_t size_in_bytes, MVHDGeom* geom, uint32_t block_size_in_sectors, int* err);
 
 /**
  * \brief Populate a VHD footer
  * 
  * \param [in] footer to populate
+ * \param [in] size_in_bytes is the total size of the virtual hard disk in bytes
  * \param [in] geom to use
  * \param [in] type of HVD that is being created
  * \param [in] sparse_header_off, an absolute file offset to the sparse header. Not used for fixed VHD images
  */
-static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off) {
+static void mvhd_gen_footer(MVHDFooter* footer, uint64_t size_in_bytes, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off) {
     memcpy(footer->cookie, "conectix", sizeof footer->cookie);
     footer->features = 0x00000002;
     footer->fi_fmt_vers = 0x00010000;
@@ -40,7 +41,7 @@ static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, u
     memcpy(footer->cr_app, "mvhd", sizeof footer->cr_app);
     footer->cr_vers = 0x000e0000;
     memcpy(footer->cr_host_os, "Wi2k", sizeof footer->cr_host_os);
-    footer->orig_sz = footer->curr_sz = mvhd_calc_size_bytes(geom);
+    footer->orig_sz = footer->curr_sz = size_in_bytes;
     footer->geom.cyl = geom->cyl;
     footer->geom.heads = geom->heads;
     footer->geom.spt = geom->spt;
@@ -55,14 +56,15 @@ static void mvhd_gen_footer(MVHDFooter* footer, MVHDGeom* geom, MVHDType type, u
  * \param [in] header for sparse and differencing images
  * \param [in] num_blks is the number of data blocks that the image contains
  * \param [in] bat_offset is the absolute file offset for start of the Block Allocation Table
+ * \param [in] block_size_in_sectors is the block size in sectors.
  */
-static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset) {
+static void mvhd_gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset, uint32_t block_size_in_sectors) {
     memcpy(header->cookie, "cxsparse", sizeof header->cookie);
     header->data_offset = 0xffffffffffffffff;
     header->bat_offset = bat_offset;
     header->head_vers = 0x00010000;
     header->max_bat_ent = num_blks;
-    header->block_sz = (uint32_t)MVHD_SECT_PER_BLOCK * (uint32_t)MVHD_SECTOR_SIZE;
+    header->block_sz = block_size_in_sectors * (uint32_t)MVHD_SECTOR_SIZE;
     header->checksum = mvhd_gen_sparse_checksum(header);
 }
 
@@ -165,7 +167,8 @@ end:
 }
 
 MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback) {
-    return mvhd_create_fixed_raw(path, NULL, &geom, err, progress_callback);
+    uint64_t size_in_bytes = mvhd_calc_size_bytes(&geom);
+    return mvhd_create_fixed_raw(path, NULL, size_in_bytes, &geom, err, progress_callback);
 }
 
 /**
@@ -176,7 +179,7 @@ MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_prog
  * 
  * \param [in] raw_image file handle to a raw disk image to populate VHD
  */
-MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom, int* err, mvhd_progress_callback progress_callback) {    
+MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, uint64_t size_in_bytes, MVHDGeom* geom, int* err, mvhd_progress_callback progress_callback) {    
     uint8_t img_data[MVHD_SECTOR_SIZE] = {0};
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     MVHDMeta* vhdm = calloc(1, sizeof *vhdm);
@@ -197,7 +200,7 @@ MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom,
         goto cleanup_vhdm;
     }
     mvhd_fseeko64(f, 0, SEEK_SET);
-    uint32_t size_sectors = mvhd_calc_size_sectors(geom);
+    uint32_t size_sectors = (uint32_t)(size_in_bytes / MVHD_SECTOR_SIZE);
     uint32_t s;
     if (progress_callback)
         progress_callback(0, size_sectors);
@@ -209,7 +212,7 @@ MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom,
             *err = MVHD_ERR_CONV_SIZE;
             goto cleanup_vhdm;
         }
-        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);        
+        mvhd_gen_footer(&vhdm->footer, raw_size, geom, MVHD_TYPE_FIXED, 0);        
         mvhd_fseeko64(raw_img, 0, SEEK_SET);
         for (s = 0; s < size_sectors; s++) {            
             fread(img_data, sizeof img_data, 1, raw_img);
@@ -218,7 +221,7 @@ MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, MVHDGeom* geom,
                 progress_callback(s + 1, size_sectors);
         }
     } else {
-        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_FIXED, 0);        
+        mvhd_gen_footer(&vhdm->footer, size_in_bytes, geom, MVHD_TYPE_FIXED, 0);        
         for (s = 0; s < size_sectors; s++) {            
             fwrite(img_data, sizeof img_data, 1, f);
             if (progress_callback)
@@ -245,12 +248,14 @@ end:
  * 
  * \param [in] path is the absolute path to the VHD file to create
  * \param [in] par_path is the absolute path to a parent image. If NULL, a sparse image is created, otherwise create a differencing image
+ * \param [in] size_in_bytes is the total size in bytes of the virtual hard disk image
  * \param [in] geom is the HDD geometry of the image to create. Determines final image size
+ * \param [in] block_size_in_sectors is the block size in sectors
  * \param [out] err indicates what error occurred, if any
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, MVHDGeom* geom, int* err) {
+static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path, uint64_t size_in_bytes, MVHDGeom* geom, uint32_t block_size_in_sectors, int* err) {
     uint8_t footer_buff[MVHD_FOOTER_SIZE] = {0};
     uint8_t sparse_buff[MVHD_SPARSE_SIZE] = {0};
     uint8_t bat_sect[MVHD_SECTOR_SIZE];
@@ -278,6 +283,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         par_geom.heads = par_vhdm->footer.geom.heads;
         par_geom.spt = par_vhdm->footer.geom.spt;
         geom = &par_geom;
+        size_in_bytes = par_vhdm->footer.curr_sz;
     } else if (geom != NULL && (geom->cyl == 0 || geom->heads == 0 || geom->spt == 0)) {
         *err = MVHD_ERR_INVALID_GEOM;
         goto cleanup_vhdm;
@@ -293,21 +299,22 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
     mvhd_fseeko64(f, 0, SEEK_SET);
     /* Note, the sparse header follows the footer copy at the beginning of the file */
     if (par_path == NULL) {
-        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_DYNAMIC, MVHD_FOOTER_SIZE);
+        mvhd_gen_footer(&vhdm->footer, size_in_bytes, geom, MVHD_TYPE_DYNAMIC, MVHD_FOOTER_SIZE);
     } else {
-        mvhd_gen_footer(&vhdm->footer, geom, MVHD_TYPE_DIFF, MVHD_FOOTER_SIZE);
+        mvhd_gen_footer(&vhdm->footer, size_in_bytes, geom, MVHD_TYPE_DIFF, MVHD_FOOTER_SIZE);
     }
     mvhd_footer_to_buffer(&vhdm->footer, footer_buff);
     /* As mentioned, start with a copy of the footer */
     fwrite(footer_buff, sizeof footer_buff, 1, f);
     /**
-     * Calculate the number of (2MB) data blocks required to store the entire
+     * Calculate the number of (2MB or 512KB) data blocks required to store the entire
      * contents of the disk image, followed by the number of sectors the 
      * BAT occupies in the image. Note, the BAT is sector aligned, and is padded
      * to the next sector boundary 
      * */
-    uint32_t num_blks = mvhd_calc_size_sectors(geom) / MVHD_SECT_PER_BLOCK;
-    if (mvhd_calc_size_sectors(geom) % MVHD_SECT_PER_BLOCK != 0) {
+    uint32_t size_in_sectors = (uint32_t)(size_in_bytes / MVHD_SECTOR_SIZE);
+    uint32_t num_blks = size_in_sectors / block_size_in_sectors;
+    if (size_in_sectors % block_size_in_sectors != 0) {
         num_blks += 1;
     }
     uint32_t num_bat_sect = num_blks / MVHD_BAT_ENT_PER_SECT;
@@ -344,7 +351,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
             goto cleanup_vhdm;
         }
     }
-    mvhd_gen_sparse_header(&vhdm->sparse, num_blks, bat_offset);
+    mvhd_gen_sparse_header(&vhdm->sparse, num_blks, bat_offset, block_size_in_sectors);
     mvhd_header_to_buffer(&vhdm->sparse, sparse_buff);
     fwrite(sparse_buff, sizeof sparse_buff, 1, f);
     /* The BAT sectors need to be filled with 0xffffffff */
@@ -398,9 +405,80 @@ end:
 }
 
 MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err) {
-    return mvhd_create_sparse_diff(path, NULL, &geom, err);
+    uint64_t size_in_bytes = mvhd_calc_size_bytes(&geom);
+    return mvhd_create_sparse_diff(path, NULL, size_in_bytes, &geom, MVHD_BLOCK_LARGE, err);
 }
 
 MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err) {
-    return mvhd_create_sparse_diff(path, par_path, NULL, err);
+    return mvhd_create_sparse_diff(path, par_path, 0, NULL, MVHD_BLOCK_LARGE, err);
+}
+
+MVHDMeta* mvhd_create_ex(MVHDCreationOptions options, int* err) {
+    uint32_t geom_sector_size;   
+    switch (options.type)
+    {
+    case MVHD_TYPE_FIXED:
+    case MVHD_TYPE_DYNAMIC:
+        geom_sector_size = mvhd_calc_size_sectors(&(options.geometry));
+        if ((options.size_in_bytes > 0 && (options.size_in_bytes % MVHD_SECTOR_SIZE) > 0)
+            || (options.size_in_bytes > MVHD_MAX_SIZE_IN_BYTES)
+            || (options.size_in_bytes == 0 && geom_sector_size == 0))
+        {
+            *err = MVHD_ERR_INVALID_SIZE;
+            return NULL;
+        }
+
+        if (options.size_in_bytes > 0 && ((uint64_t)geom_sector_size * MVHD_SECTOR_SIZE) > options.size_in_bytes)
+        {
+            *err = MVHD_ERR_INVALID_GEOM;
+            return NULL;
+        }
+
+        if (options.size_in_bytes == 0)
+            options.size_in_bytes = (uint64_t)geom_sector_size * MVHD_SECTOR_SIZE;
+
+        if (geom_sector_size == 0)
+            options.geometry = mvhd_calculate_geometry(options.size_in_bytes);
+        break;
+    case MVHD_TYPE_DIFF:
+        if (options.parent_path == NULL)
+        {
+            *err = MVHD_ERR_FILE;
+            return NULL;
+        }
+        break;
+    default:
+        *err = MVHD_ERR_TYPE;
+        return NULL;
+    }
+
+    if (options.path == NULL)
+    {
+        *err = MVHD_ERR_FILE;
+        return NULL;
+    }
+
+    if (options.type != MVHD_TYPE_FIXED)
+    {
+        if (options.block_size_in_sectors == MVHD_BLOCK_DEFAULT)
+            options.block_size_in_sectors = MVHD_BLOCK_LARGE;
+
+        if (options.block_size_in_sectors != MVHD_BLOCK_LARGE && options.block_size_in_sectors != MVHD_BLOCK_SMALL)
+        {
+            *err = MVHD_ERR_INVALID_BLOCK_SIZE;
+            return NULL;
+        }
+    }
+
+    switch (options.type)
+    {
+    case MVHD_TYPE_FIXED:
+        return mvhd_create_fixed_raw(options.path, NULL, options.size_in_bytes, &(options.geometry), err, options.progress_callback);
+    case MVHD_TYPE_DYNAMIC:
+        return mvhd_create_sparse_diff(options.path, NULL, options.size_in_bytes, &(options.geometry), options.block_size_in_sectors, err);
+    case MVHD_TYPE_DIFF:
+        return mvhd_create_sparse_diff(options.path, options.parent_path, 0, NULL, options.block_size_in_sectors, err);
+    }
+
+    return NULL; /* Make the compiler happy */
 }
