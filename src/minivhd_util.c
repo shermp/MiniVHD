@@ -287,6 +287,7 @@ uint32_t mvhd_crc32(const void* data, size_t n_bytes) {
 }
 
 uint32_t mvhd_file_mod_timestamp(const char* path, int *err) {
+    *err = 0;
 #ifdef _WIN32
     struct _stat file_stat;
     size_t path_len = strlen(path);
@@ -298,7 +299,7 @@ uint32_t mvhd_file_mod_timestamp(const char* path, int *err) {
         if (stat_res != 0) {
             mvhd_errno = errno;
             *err = MVHD_ERR_FILE;
-            return -1;
+            return 0;
         }
         return mvhd_epoch_to_vhd_ts(file_stat.st_mtime);
     } else {
@@ -307,7 +308,7 @@ uint32_t mvhd_file_mod_timestamp(const char* path, int *err) {
         } else if (path_res == -2) {
             *err = MVHD_ERR_UTF_TRANSCODING_FAILED;
         }
-        return -1;
+        return 0;
     }
 #else
     struct stat file_stat;
@@ -315,7 +316,7 @@ uint32_t mvhd_file_mod_timestamp(const char* path, int *err) {
     if (stat_res != 0) {
             mvhd_errno = errno;
             *err = MVHD_ERR_FILE;
-            return -1;
+            return 0;
         }
     return mvhd_epoch_to_vhd_ts(file_stat.st_mtime);
 #endif

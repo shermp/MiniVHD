@@ -128,8 +128,8 @@ uint32_t mvhd_crc32(const void* data, size_t n_bytes);
  * \param [in] path the UTF-8 file path
  * \param [out] err The error value, if an error occurrs
  * 
- * \return The file modified timestamp, in VHD compatible timestamp, or -1 on error.
- * if error, 'err' will be set.
+ * \return The file modified timestamp, in VHD compatible timestamp.
+ * 'err' will be set to non-zero on error
  */
 uint32_t mvhd_file_mod_timestamp(const char* path, int *err);
 #endif
