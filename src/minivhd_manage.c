@@ -483,6 +483,34 @@ void mvhd_close(MVHDMeta* vhdm) {
     }
 }
 
+int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err) {
+    uint8_t sparse_buff[1024];
+    if (vhdm == NULL || err == NULL) {
+        *err = MVHD_ERR_INVALID_PARAMS;
+        return -1;
+    }
+    if (vhdm->footer.disk_type != MVHD_TYPE_DIFF) {
+        *err = MVHD_ERR_TYPE;
+        return -1;
+    }
+    char* par_path = mvhd_get_diff_parent_path(vhdm, err);
+    if (par_path == NULL) {
+        return -1;
+    }
+    uint32_t par_mod_ts = mvhd_file_mod_timestamp(par_path, err);
+    if (*err != 0) {
+        return -1;
+    }
+    /* Update the timestamp and sparse header checksum */
+    vhdm->sparse.par_timestamp = par_mod_ts;
+    vhdm->sparse.checksum = mvhd_gen_sparse_checksum(&vhdm->sparse);
+    /* Generate and write the updated sparse header */
+    mvhd_header_to_buffer(&vhdm->sparse, sparse_buff);
+    mvhd_fseeko64(vhdm->f, (int64_t)vhdm->footer.data_offset, SEEK_SET);
+    fwrite(sparse_buff, sizeof sparse_buff, 1, vhdm->f);
+    return 0;
+}
+
 int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff) {
     return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
 }

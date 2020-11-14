@@ -101,6 +101,24 @@ bool mvhd_file_is_vhd(FILE* f);
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
 
 /**
+ * \brief Update the parent modified timestamp in the VHD file
+ * 
+ * Differencing VHD's use a parent last modified timestamp to try and detect if the
+ * parent has been modified after the child has been created. However, this is rather
+ * fragile and can be broken by moving/copying the parent. Also, MS DiskPart does not
+ * set this timestamp in the child :(
+ * 
+ * Be careful when using this function that you don't update the timestamp after the
+ * parent actually has been modified.
+ * 
+ * \param [in] vhdm Differencing VHD to update.
+ * \param [out] err will be set if the timestamp could not be updated
+ * 
+ * \return non-zero on error, 0 on success
+ */
+int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
+
+/**
  * \brief Create a fixed VHD image
  * 
  * \param [in] path is the absolute path to the image to create
