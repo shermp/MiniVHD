@@ -95,7 +95,8 @@ bool mvhd_file_is_vhd(FILE* f);
  * MVHD_ERR_TYPE, MVHD_ERR_TIMESTAMP
  * If MVHD_ERR_FILE is set, mvhd_errno will be set to the appropriate system errno value
  * 
- * \return MVHDMeta pointer. If NULL, check err.
+ * \return MVHDMeta pointer. If NULL, check err. err may also be set to MVHD_ERR_TIMESTAMP if
+ *         opening a differencing VHD.
  */
 MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
 

@@ -426,8 +426,9 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
             goto cleanup_format_buff;
         }
         if (vhdm->sparse.par_timestamp != par_mod_ts) {
+            /* The last-modified timestamp is to fragile to make this a fatal error.
+               Instead, we inform the caller of the potential problem. */
             *err = MVHD_ERR_TIMESTAMP;
-            goto cleanup_format_buff;
         }
         vhdm->parent = mvhd_open(par_path, true, err);
         if (vhdm->parent == NULL) {
