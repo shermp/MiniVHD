@@ -261,8 +261,12 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
     MVHDMeta* par_vhdm = NULL;
     mvhd_utf16* w2ku_path_buff = NULL;
     mvhd_utf16* w2ru_path_buff = NULL;
-
+    uint32_t par_mod_timestamp = 0;
     if (par_path != NULL) {
+        par_mod_timestamp = mvhd_file_mod_timestamp(par_path, err);
+        if (*err != 0) {
+            goto end;
+        }
         par_vhdm = mvhd_open(par_path, true, err);
         if (par_vhdm == NULL) {
             goto end;
@@ -320,7 +324,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
 
     /**
      * If creating a differencing VHD, populate the sparse header with additional 
-     * data about the parent image, and where to find it
+     * data about the parent image, and where to find it, and it's last modified timestamp
      * */
     if (par_vhdm != NULL) {
         /**
@@ -343,6 +347,7 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         if (mvhd_gen_par_loc(&vhdm->sparse, path, par_path, par_loc_offset, w2ku_path_buff, w2ru_path_buff, (MVHDError*)err) < 0) {
             goto cleanup_vhdm;
         }
+        vhdm->sparse.par_timestamp = par_mod_timestamp;
     }
     mvhd_gen_sparse_header(&vhdm->sparse, num_blks, bat_offset, block_size_in_sectors);
     mvhd_header_to_buffer(&vhdm->sparse, sparse_buff);
