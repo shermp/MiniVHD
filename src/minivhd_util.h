@@ -40,6 +40,16 @@ void mvhd_generate_uuid(uint8_t *uuid);
 uint32_t vhd_calc_timestamp(void);
 
 /**
+ * \brief Convert an epoch timestamp to a VHD timestamp
+ * 
+ * \param [in] ts epoch timestamp to convert.
+ * 
+ * \return The adjusted timestamp, or 0 if the input timestamp is
+ * earlier that 1 Janurary 2000
+ */
+uint32_t mvhd_epoch_to_vhd_ts(time_t ts);
+
+/**
  * \brief Return the created time from a VHD image
  * 
  * \param [in] vhdm Pointer to the MiniVHD metadata structure
@@ -109,4 +119,17 @@ int mvhd_fseeko64(FILE* stream, int64_t offset, int origin);
  * \return The CRC32 of the data buffer
  */
 uint32_t mvhd_crc32(const void* data, size_t n_bytes);
+
+/**
+ * \brief Calculate the file modification timestamp.
+ * 
+ * This function is primarily to help protect differencing VHD's
+ * 
+ * \param [in] path the UTF-8 file path
+ * \param [out] err The error value, if an error occurrs
+ * 
+ * \return The file modified timestamp, in VHD compatible timestamp, or -1 on error.
+ * if error, 'err' will be set.
+ */
+uint32_t mvhd_file_mod_timestamp(const char* path, int *err);
 #endif

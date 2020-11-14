@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "libxml2_encoding.h"
 #include "minivhd_internal.h"
 #include "minivhd_util.h"
@@ -107,6 +109,15 @@ uint32_t vhd_calc_timestamp(void)
         curr_time = time(NULL);
         vhd_time = difftime(curr_time, start_time);
         return (uint32_t)vhd_time;
+}
+
+uint32_t mvhd_epoch_to_vhd_ts(time_t ts) {
+    time_t start_time = MVHD_START_TS;
+    if (ts < start_time) {
+        return start_time;
+    }
+    double vhd_time = difftime(ts, start_time);
+    return (uint32_t)vhd_time;
 }
 
 time_t vhd_get_created_time(MVHDMeta *vhdm)
@@ -273,4 +284,39 @@ uint32_t mvhd_crc32(const void* data, size_t n_bytes) {
         crc = table[(uint8_t)crc ^ ((uint8_t*)data)[i]] ^ crc >> 8;
 
     return crc;
+}
+
+uint32_t mvhd_file_mod_timestamp(const char* path, int *err) {
+#ifdef _WIN32
+    struct _stat file_stat;
+    size_t path_len = strlen(path);
+    mvhd_utf16 new_path[260] = {0};
+    int new_path_len = (sizeof new_path) - 2;
+    int path_res = UTF8ToUTF16LE((unsigned char*)new_path, &new_path_len, (const unsigned char*)path, (int*)&path_len);
+    if (path_res > 0) {
+        int stat_res = _wstat(new_path, &file_stat);
+        if (stat_res != 0) {
+            mvhd_errno = errno;
+            *err = MVHD_ERR_FILE;
+            return -1;
+        }
+        return mvhd_epoch_to_vhd_ts(file_stat.st_mtime);
+    } else {
+        if (path_res == -1) {
+            *err = MVHD_ERR_UTF_SIZE;
+        } else if (path_res == -2) {
+            *err = MVHD_ERR_UTF_TRANSCODING_FAILED;
+        }
+        return -1;
+    }
+#else
+    struct stat file_stat;
+    int stat_res = stat(path, &file_stat);
+    if (stat_res != 0) {
+            mvhd_errno = errno;
+            *err = MVHD_ERR_FILE;
+            return -1;
+        }
+    return mvhd_epoch_to_vhd_ts(file_stat.st_mtime);
+#endif
 }
