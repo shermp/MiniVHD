@@ -421,6 +421,14 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err) {
         if (par_path == NULL) {
             goto cleanup_format_buff;
         }
+        uint32_t par_mod_ts = mvhd_file_mod_timestamp(par_path, err);
+        if (*err != 0) {
+            goto cleanup_format_buff;
+        }
+        if (vhdm->sparse.par_timestamp != par_mod_ts) {
+            *err = MVHD_ERR_TIMESTAMP;
+            goto cleanup_format_buff;
+        }
         vhdm->parent = mvhd_open(par_path, true, err);
         if (vhdm->parent == NULL) {
             goto cleanup_format_buff;

@@ -92,7 +92,7 @@ bool mvhd_file_is_vhd(FILE* f);
  * \param [in] readonly set this to true to open the VHD in a read only manner
  * \param [out] err will be set if the VHD fails to open. Value could be one of 
  * MVHD_ERR_MEM, MVHD_ERR_FILE, MVHD_ERR_NOT_VHD, MVHD_ERR_FOOTER_CHECKSUM, MVHD_ERR_SPARSE_CHECKSUM, 
- * MVHD_ERR_TYPE
+ * MVHD_ERR_TYPE, MVHD_ERR_TIMESTAMP
  * If MVHD_ERR_FILE is set, mvhd_errno will be set to the appropriate system errno value
  * 
  * \return MVHDMeta pointer. If NULL, check err.
