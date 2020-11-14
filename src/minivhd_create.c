@@ -187,11 +187,7 @@ MVHDMeta* mvhd_create_fixed_raw(const char* path, FILE* raw_img, uint64_t size_i
         *err = MVHD_ERR_MEM;
         goto end;
     }
-    if (raw_img == NULL && geom == NULL) {
-        *err = MVHD_ERR_INVALID_GEOM;
-        goto cleanup_vhdm;
-    }
-    if (geom != NULL && (geom->cyl == 0 || geom->heads == 0 || geom->spt == 0)) {
+    if (geom == NULL || (geom->cyl == 0 || geom->heads == 0 || geom->spt == 0)) {
         *err = MVHD_ERR_INVALID_GEOM;
         goto cleanup_vhdm;
     }
@@ -284,13 +280,10 @@ static MVHDMeta* mvhd_create_sparse_diff(const char* path, const char* par_path,
         par_geom.spt = par_vhdm->footer.geom.spt;
         geom = &par_geom;
         size_in_bytes = par_vhdm->footer.curr_sz;
-    } else if (geom != NULL && (geom->cyl == 0 || geom->heads == 0 || geom->spt == 0)) {
+    } else if (geom == NULL || (geom->cyl == 0 || geom->heads == 0 || geom->spt == 0)) {
         *err = MVHD_ERR_INVALID_GEOM;
         goto cleanup_vhdm;
-    } else if (geom == NULL) {
-        *err = MVHD_ERR_INVALID_GEOM;
-        goto cleanup_vhdm;
-    }    
+    } 
     
     FILE* f = mvhd_fopen(path, "wb+", err);
     if (f == NULL) {
