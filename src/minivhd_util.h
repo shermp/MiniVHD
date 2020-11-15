@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 #include "minivhd_internal.h"
 #include "minivhd.h"
 #define MVHD_START_TS 946684800
