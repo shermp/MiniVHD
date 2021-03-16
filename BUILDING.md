@@ -15,21 +15,6 @@ added as time permits.
 #### Microsoft Windows
 
 #### Get the sources.
-Get a copy of the source tree (by cloning the GIT repository, or
-by downloading a ZIP archive from GIT) and unpack them (if needed)
-into a folder:
-
-  `D:`
-
-  `cd \minivhd`
-
-  `mkdir src`
-
-  `cd src`
-
-  `unzip varcem-1.7.4.zip`
-
-which puts the source tree into the *D:\minivhd\src* folder.
 
 For the Windows environment, two methods of compiling these sources are currently possible:
 
