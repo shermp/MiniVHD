@@ -1,0 +1,98 @@
+/*
+ * VARCem	Virtual ARchaeological Computer EMulator.
+ *		An emulator of (mostly) x86-based PC systems and devices,
+ *		using the ISA,EISA,VLB,MCA  and PCI system buses, roughly
+ *		spanning the era between 1981 and 1995.
+ *
+ *		This file is part of the VARCem Project.
+ *
+ *		Application resource script for Windows.
+ *
+ * Version:	@(#)minivhd.rc	1.0.1	2021/03/15
+ *
+ * Author:	Fred N. van Kempen, <waltje@varcem.com>
+ *
+ *		Copyright 2021 Fred N. van Kempen.
+ *
+ *		Redistribution and  use  in source  and binary forms, with
+ *		or  without modification, are permitted  provided that the
+ *		following conditions are met:
+ *
+ *		1. Redistributions of  source  code must retain the entire
+ *		   above notice, this list of conditions and the following
+ *		   disclaimer.
+ *
+ *		2. Redistributions in binary form must reproduce the above
+ *		   copyright  notice,  this list  of  conditions  and  the
+ *		   following disclaimer in  the documentation and/or other
+ *		   materials provided with the distribution.
+ *
+ *		3. Neither the  name of the copyright holder nor the names
+ *		   of  its  contributors may be used to endorse or promote
+ *		   products  derived from  this  software without specific
+ *		   prior written permission.
+ *
+ * THIS SOFTWARE  IS  PROVIDED BY THE  COPYRIGHT  HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND  ANY EXPRESS  OR  IMPLIED  WARRANTIES,  INCLUDING, BUT  NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE  ARE  DISCLAIMED. IN  NO  EVENT  SHALL THE COPYRIGHT
+ * HOLDER OR  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL,  EXEMPLARY,  OR  CONSEQUENTIAL  DAMAGES  (INCLUDING,  BUT  NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE  GOODS OR SERVICES;  LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED  AND ON  ANY
+ * THEORY OF  LIABILITY, WHETHER IN  CONTRACT, STRICT  LIABILITY, OR  TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING  IN ANY  WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#include <windows.h>
+#include "../version.h"
+
+
+100		ICON	DISCARDABLE	"win32/icons/minivhd.ico"
+
+
+VS_VERSION_INFO VERSIONINFO
+#ifdef LIB_VER_PATCH
+ FILEVERSION	LIB_VER_MAJOR,LIB_VER_MINOR,LIB_VER_REV,LIB_VER_PATCH
+ PRODUCTVERSION	LIB_VER_MAJOR,LIB_VER_MINOR,LIB_VER_REV,LIB_VER_PATCH
+#else
+ FILEVERSION	LIB_VER_MAJOR,LIB_VER_MINOR,LIB_VER_REV,0
+ PRODUCTVERSION	LIB_VER_MAJOR,LIB_VER_MINOR,LIB_VER_REV,0
+#endif
+ FILEFLAGSMASK	0x3fL
+#ifndef RELEASE_BUILD
+# ifdef _DEBUG
+ FILEFLAGS	VS_FF_SPECIALBUILD | VS_FF_DEBUG
+# else
+ FILEFLAGS	VS_FF_SPECIALBUILD
+# endif
+#else
+# ifdef _DEBUG
+ FILEFLAGS	VS_FF_DEBUG
+# else
+ FILEFLAGS	0x0L
+# endif
+#endif
+ FILEOS		VOS_NT_WINDOWS32
+ FILETYPE	VFT_DLL
+ FILESUBTYPE	0x0L
+ BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "0409fde9"
+        BEGIN
+            VALUE "CompanyName", "Sherman Perry and Contributors"
+            VALUE "FileDescription", "MiniVHD"
+            VALUE "FileVersion", LIB_VERSION
+            VALUE "InternalName", LIB_NAME
+            VALUE "LegalCopyright", "Copyright 2020,2021"
+            VALUE "OriginalFilename", "libminivhd.dll"
+            VALUE "ProductName", "MiniVHD Library"
+            VALUE "ProductVersion", LIB_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 65001
+    END
+END

@@ -1,11 +1,47 @@
+/*
+ * MiniVHD	Minimalist VHD implementation in C.
+ *		MiniVHD is a minimalist implementation of read/write/creation
+ *		of VHD files. It is designed to read and write to VHD files
+ *		at a sector level. It does not enable file access, or provide
+ *		mounting options. Those features are left to more advanced
+ *		libraries and/or the operating system.
+ *
+ *		This file is part of the MiniVHD Project.
+ *
+ *		Definitions for the MiniVHD library.
+ *
+ * Version:	@(#)minivhd.h	1.0.1	2021/03/15
+ *
+ * Author:	Sherman Perry, <shermperry@gmail.com>
+ *
+ *		Copyright 2019-2021 Sherman Perry.
+ *
+ *		MIT License
+ *
+ *		Permission is hereby granted, free of  charge, to any person
+ *		obtaining a copy of this software  and associated documenta-
+ *		tion files (the "Software"), to deal in the Software without
+ *		restriction, including without limitation the rights to use,
+ *		copy, modify, merge, publish, distribute, sublicense, and/or
+ *		sell copies of  the Software, and  to permit persons to whom
+ *		the Software is furnished to do so, subject to the following
+ *		conditions:
+ *
+ *		The above  copyright notice and this permission notice shall
+ *		be included in  all copies or  substantial  portions of  the
+ *		Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING  BUT NOT LIMITED TO THE  WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A  PARTICULAR PURPOSE AND NONINFRINGEMENT. IN  NO EVENT  SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER  IN AN ACTION OF  CONTRACT, TORT OR  OTHERWISE, ARISING
+ * FROM, OUT OF  O R IN  CONNECTION WITH THE  SOFTWARE OR  THE USE  OR  OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
 #ifndef MINIVHD_H
-#define MINIVHD_H
+# define MINIVHD_H
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
-
-extern int mvhd_errno;
 
 typedef enum MVHDError {
     MVHD_ERR_MEM = -128,
@@ -46,6 +82,11 @@ typedef struct MVHDGeom {
     uint8_t spt;
 } MVHDGeom;
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void (*mvhd_progress_callback)(uint32_t current_sector, uint32_t total_sectors);
 
 typedef struct MVHDCreationOptions {
@@ -60,6 +101,42 @@ typedef struct MVHDCreationOptions {
 
 typedef struct MVHDMeta MVHDMeta;
 
+
+extern int mvhd_errno;
+
+
+/* Shared-library madness. */
+#ifdef STATIC
+# define MVHD_API	/*nothing*/
+#else
+# if defined(_WIN32) && !defined(__GNUC__)
+#  ifdef BUILDING_DLL
+#   define MVHD_API	__declspec(dllexport)
+#  else
+#   define MVHD_API	//__declspec(dllimport)
+#  endif 
+# elif defined(__GNUC__)
+#  ifdef BUILDING_DLL
+#   define MVHD_API	__attribute__((visibility("default")))
+#  else
+#   define MVHD_API	/*nothing*/
+#  endif
+# else
+#  define MVHD_API	/*nothing*/
+# endif 
+#endif
+
+
+/**
+ * \brief Return the library version as a string
+ */
+MVHD_API const char *mvhd_version(void);
+
+/**
+ * \brief Return the library version as a number
+ */
+MVHD_API uint32_t mvhd_version_id(void);
+
 /**
  * \brief Output a string from a MiniVHD error number
  * 
@@ -67,17 +144,17 @@ typedef struct MVHDMeta MVHDMeta;
  * 
  * \return Error string
  */
-const char* mvhd_strerr(MVHDError err);
+MVHD_API const char* mvhd_strerr(MVHDError err);
 
 /**
  * \brief A simple test to see if a given file is a VHD
  * 
  * \param [in] f file to test
  * 
- * \retval true if f is a VHD
- * \retval false if f is not a VHD
+ * \retval 1 if f is a VHD
+ * \retval 0 if f is not a VHD
  */
-bool mvhd_file_is_vhd(FILE* f);
+MVHD_API int mvhd_file_is_vhd(FILE* f);
 
 /**
  * \brief Open a VHD image for reading and/or writing
@@ -98,7 +175,7 @@ bool mvhd_file_is_vhd(FILE* f);
  * \return MVHDMeta pointer. If NULL, check err. err may also be set to MVHD_ERR_TIMESTAMP if
  *         opening a differencing VHD.
  */
-MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
+MVHD_API MVHDMeta* mvhd_open(const char* path, int readonly, int* err);
 
 /**
  * \brief Update the parent modified timestamp in the VHD file
@@ -116,7 +193,7 @@ MVHDMeta* mvhd_open(const char* path, bool readonly, int* err);
  * 
  * \return non-zero on error, 0 on success
  */
-int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
+MVHD_API int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
 
 /**
  * \brief Create a fixed VHD image
@@ -128,7 +205,7 @@ int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
  * 
  * \retval NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback);
+MVHD_API MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback);
 
 /**
  * \brief Create sparse (dynamic) VHD image.
@@ -139,7 +216,7 @@ MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_prog
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
+MVHD_API MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
 
 /**
  * \brief Create differencing VHD imagee.
@@ -150,7 +227,7 @@ MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
+MVHD_API MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
 
 /**
  * \brief Create a VHD using the provided options
@@ -162,14 +239,14 @@ MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
  *
  * \retval NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_create_ex(MVHDCreationOptions options, int* err);
+MVHD_API MVHDMeta* mvhd_create_ex(MVHDCreationOptions options, int* err);
 
 /**
  * \brief Safely close a VHD image
  * 
  * \param [in] vhdm MiniVHD data structure to close
  */
-void mvhd_close(MVHDMeta* vhdm);
+MVHD_API void mvhd_close(MVHDMeta* vhdm);
 
 /**
  * \brief Calculate hard disk geometry from a provided size
@@ -189,7 +266,7 @@ void mvhd_close(MVHDMeta* vhdm);
  * 
  * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
  */
-MVHDGeom mvhd_calculate_geometry(uint64_t size);
+MVHD_API MVHDGeom mvhd_calculate_geometry(uint64_t size);
 
 /**
  * \brief Get the CHS geometry from the image
@@ -198,7 +275,7 @@ MVHDGeom mvhd_calculate_geometry(uint64_t size);
  * 
  * \return The CHS geometry as stored in the image
  */
-MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
+MVHD_API MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
 
 /**
  * \brief Get the 'current_size' value from the image
@@ -211,7 +288,7 @@ MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
  * \return The 'current_size' value in bytes, as stored in the image.
  *         Note, this may not match the CHS geometry.
  */
-uint64_t mvhd_get_current_size(MVHDMeta* vhdm);
+MVHD_API uint64_t mvhd_get_current_size(MVHDMeta* vhdm);
 
 /**
  * \brief Calculate CHS geometry size in bytes
@@ -220,7 +297,7 @@ uint64_t mvhd_get_current_size(MVHDMeta* vhdm);
  * 
  * \return the size in bytes
  */
-uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
+MVHD_API uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
 
 /**
  * \brief Calculate CHS geometry size in sectors
@@ -229,7 +306,7 @@ uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
  * 
  * \return the size in sectors
  */
-uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
+MVHD_API uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
 
 /**
  * \brief Convert a raw disk image to a fixed VHD image
@@ -240,7 +317,7 @@ uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
+MVHD_API MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
 
 /**
  * \brief Convert a raw disk image to a sparse VHD image
@@ -251,7 +328,7 @@ MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
+MVHD_API MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
 
 /**
  * \brief Convert a VHD image to a raw disk image
@@ -262,7 +339,7 @@ MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns the raw disk image FILE pointer
  */
-FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, int *err);
+MVHD_API FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, int *err);
 
 /**
  * \brief Read sectors from VHD file
@@ -276,7 +353,7 @@ FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, 
  * 
  * \return the number of sectors that were not read, or zero
  */
-int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff);
+MVHD_API int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff);
 
 /**
  * \brief Write sectors to VHD file
@@ -290,7 +367,7 @@ int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* ou
  * 
  * \return the number of sectors that were not written, or zero
  */
-int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff);
+MVHD_API int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff);
 
 /**
  * \brief Write zeroed sectors to VHD file
@@ -305,5 +382,11 @@ int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* i
  * 
  * \return the number of sectors that were not written, or zero
  */
-int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors);
+MVHD_API int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors);
+
+#ifdef __cplusplus
+}
 #endif
+
+
+#endif	/*MINIVHD_H*/

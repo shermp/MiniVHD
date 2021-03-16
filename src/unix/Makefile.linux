@@ -1,0 +1,253 @@
+#
+# MiniVHD	Minimalist VHD implementation in C.
+#		MiniVHD is a minimalist implementation of read/write/creation
+#		of VHD files. It is designed to read and write to VHD files
+#		at a sector level. It does not enable file access, or provide
+#		mounting options. Those features are left to more advanced
+#		libraries and/or the operating system.
+#
+#		This file is part of the MiniVHD Project.
+#
+#		Makefile for UNIX and Linux systems using GCC.
+#
+# Version:	@(#)Makefile.GCC	1.0.1	2021/03/16
+#
+# Author:	Fred N. van Kempen, <waltje@varcem.com>
+#
+#		Copyright 2021 Fred N. van Kempen.
+#		Copyright 2019-2021 Sherman Perry.
+#
+#		MIT License
+#
+#		Permission is hereby granted, free of  charge, to any person
+#		obtaining a copy of this software  and associated documenta-
+#		tion files (the "Software"), to deal in the Software without
+#		restriction, including without limitation the rights to use,
+#		copy, modify, merge, publish, distribute, sublicense, and/or
+#		sell copies of  the Software, and  to permit persons to whom
+#		the Software is furnished to do so, subject to the following
+#		conditions:
+#
+#		The above  copyright notice and this permission notice shall
+#		be included in  all copies or  substantial  portions of  the
+#		Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING  BUT NOT LIMITED TO THE  WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A  PARTICULAR PURPOSE AND NONINFRINGEMENT. IN  NO EVENT  SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER  IN AN ACTION OF  CONTRACT, TORT OR  OTHERWISE, ARISING
+# FROM, OUT OF  O R IN  CONNECTION WITH THE  SOFTWARE OR  THE USE  OR  OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+
+
+# Defaults for several build options (possibly defined in a chained file.)
+ifndef AUTODEP
+ AUTODEP	:= n
+endif
+ifndef DEBUG
+ DEBUG		:= n
+endif
+ifndef X64
+ X64		:= n
+endif
+
+
+# Name of the projects.
+PROGS		:= tester
+LIBS		:= libminivhd
+ifeq ($(DEBUG), y)
+ PROGS		:= $(PROGS)-d
+ LIBS		:= $(LIBS)-d
+endif
+
+
+# Select the desired platform.
+PLAT		:= Linux
+PLATDEFS	:= -DLINUX -DPLAT=\"$(PLAT)\"
+PLATNAME	:= linux
+PLATDIR		:= unix
+
+
+# Project settings.
+DEFS		:=
+
+
+#########################################################################
+#		Nothing should need changing from here on..		#
+#########################################################################
+VPATH		:= unix
+
+
+# Select the required build environment.
+ifeq ($(X64), y)
+ CPP		:= g++ -m64
+ CC		:= gcc -m64
+ ARCH		:= x64
+else
+ CPP		:= g++ -m32
+ CC		:= gcc -m32
+ ARCH		:= x86
+endif
+PREPROC		:= cpp
+MCPP		:= cpp
+LINK		:= gcc
+AR		:= ar
+RANLIB		:= ranlib
+STRIP		:= strip
+
+SYSINC		:=
+SYSLIB		:=
+
+DEPS		= -MMD -MF $*.d -c $<
+DEPFILE		:= $(PLATDIR)/.depends-$(PLATNAME)
+
+
+# Set up the correct toolchain flags.
+OPTS		:= -DUNIX $(PLATDEFS)
+AFLAGS		:= -msse2 -mfpmath=sse
+COPTS		:= -Wall
+CXXOPTS		:= -Wall
+DOPTS		:= 
+LOPTS		:=
+ifeq ($(DEBUG), y)
+ OPTS		+= -D_DEBUG
+ DOPTS		:= -Og -ggdb
+ ROPTS		+= -D_DEBUG
+else
+ DFLAGS		:= -O3
+endif
+SYSLIBS		:= -lgcc #-lpthread
+
+
+# Final versions of the toolchain flags.
+LFLAGS		:= -pthread $(LOPTS) -L.
+CFLAGS		:= $(DEFS) $(OPTS) $(COPTS) $(DOPTS) -I. \
+		   -fPIC -fno-strict-aliasing -fvisibility=hidden \
+		   -fomit-frame-pointer -mstackrealign -Wall -Wundef
+CXXFLAGS	:= -I/usr/include/c++/4.8.4 \
+		   $(DEFS) $(OPTS) $(CXXOPTS) $(COPTS) $(DOPTS)  -I.\
+		   -fPIC -fno-strict-aliasing -fvisibility=hidden \
+		   -fvisibility-inlines-hidden -Wall -Wundef -Wunused-parameter \
+		   -Wmissing-declarations -Wno-ctor-dtor-privacy -Woverloaded-virtual
+
+
+#########################################################################
+#		Create the (final) list of objects to build.		#
+#########################################################################
+
+LOBJ		:= cwalk.o xml2_encoding.o \
+		   convert.o create.o io.o manage.o struct_rw.o util.o
+
+
+# Build module rules.
+ifeq ($(AUTODEP), y)
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -c $<
+else
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) -c $<
+
+%.d:		%.c $(wildcard $*.d)
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -E $< >NUL
+
+%.d:		%.cpp $(wildcard $*.d)
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -E $< >NUL
+endif
+
+
+all:		$(LIBS).so $(LIBS).a $(PROGS) $(PROGS)_s
+
+
+$(LIBS).so:	$(LOBJ)
+		@echo Creating $(LIBS).so
+		@$(CC) $(LFLAGS) -shared -o $(LIBS).so $(LOBJ)
+ifneq ($(DEBUG), y)
+		@$(STRIP) --strip-unneeded $(LIBS).so
+endif
+
+$(LIBS).a:	$(LOBJ)
+		@echo Creating $@ ..
+		@$(AR) rv $@ $(LOBJ)
+		@$(RANLIB) $@
+
+$(PROGS):	$(PROGS).o
+		@echo Linking $@ ..
+		$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -lminivhd
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+$(PROGS)_s:	$(PROGS).o
+		@echo Linking $@ ..
+		$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -static -lminivhd
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+
+install:	all
+		@-mkdir ../bin
+		@-mkdir ../include
+		@-mkdir ../lib
+ifeq ($(X64), y)
+		@-mkdir ../lib/x64 >NUL
+		@-cp $(LNAME).a $(LNAME).dll.a ../lib/x64
+else
+		@-mkdir ../lib/x86 >NUL
+		@-cp $(LNAME).a $(LNAME).dll.a ../lib/x86
+endif
+		@-cp $(LIBS).so ../bin
+		@-cp minivhd.h ../include
+
+clean:
+		@echo Cleaning objects..
+		@-rm -f *.o
+
+clobber:	clean
+		@echo Cleaning executables..
+		@-rm -f tester tester_s
+		@echo Cleaning libraries..
+		@-rm -f *.so
+		@-rm -f *.a
+		@-rm -f *.d
+		@-rm -f $(DEPFILE)
+
+ifneq ($(AUTODEP), y)
+depclean:
+		@-rm -f $(DEPFILE)
+		@echo Creating dependencies..
+		@echo # Run "make depends" to re-create this file. >$(DEPFILE)
+
+depends:	DEPOBJ=$(OBJ:%.o=%.d)
+depends:	depclean $(OBJ:%.o=%.d)
+		@$(CAT) $(DEPOBJ) >>$(DEPFILE)
+#		@-rm -f $(DEPOBJ)
+
+$(DEPFILE):
+endif
+
+
+# Module dependencies.
+ifeq ($(AUTODEP), y)
+#-include $(OBJ:%.o=%.d)  (better, but sloooowwwww)
+-include *.d
+else
+include $(wildcard $(DEPFILE))
+endif
+
+
+# End of Makefile.GCC.

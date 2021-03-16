@@ -1,0 +1,215 @@
+#
+# VARCem	Virtual ARchaeological Computer EMulator.
+#		An emulator of (mostly) x86-based PC systems and devices,
+#		using the ISA,EISA,VLB,MCA  and PCI system buses, roughly
+#		spanning the era between 1981 and 1995.
+#
+#		This file is part of the VARCem Project.
+#
+#		Makefile for Windows systems using the MinGW32 environment.
+#
+# Version:	@(#)Makefile.MinGW	1.0.1	2021/03/16
+#
+# Author:	Fred N. van Kempen, <waltje@varcem.com>
+#
+#		Copyright 2021 Fred N. van Kempen.
+#
+#		Redistribution and  use  in source  and binary forms, with
+#		or  without modification, are permitted  provided that the
+#		following conditions are met:
+#
+#		1. Redistributions of  source  code must retain the entire
+#		   above notice, this list of conditions and the following
+#		   disclaimer.
+#
+#		2. Redistributions in binary form must reproduce the above
+#		   copyright  notice,  this list  of  conditions  and  the
+#		   following disclaimer in  the documentation and/or other
+#		   materials provided with the distribution.
+#
+#		3. Neither the  name of the copyright holder nor the names
+#		   of  its  contributors may be used to endorse or promote
+#		   products  derived from  this  software without specific
+#		   prior written permission.
+#
+# THIS SOFTWARE  IS  PROVIDED BY THE  COPYRIGHT  HOLDERS AND CONTRIBUTORS
+# "AS IS" AND  ANY EXPRESS  OR  IMPLIED  WARRANTIES,  INCLUDING, BUT  NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE  ARE  DISCLAIMED. IN  NO  EVENT  SHALL THE COPYRIGHT
+# HOLDER OR  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL,  EXEMPLARY,  OR  CONSEQUENTIAL  DAMAGES  (INCLUDING,  BUT  NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE  GOODS OR SERVICES;  LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED  AND ON  ANY
+# THEORY OF  LIABILITY, WHETHER IN  CONTRACT, STRICT  LIABILITY, OR  TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING  IN ANY  WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+
+# Defaults for several build options (possibly defined in a chained file.)
+ifndef DEBUG
+ DEBUG		:= n
+endif
+ifndef X64
+ X64		:= n
+endif
+
+
+PROGS		:= vhdcvt.exe
+SYSOBJ		:=
+
+
+#########################################################################
+#		Nothing should need changing from here on..		#
+#########################################################################
+
+#
+# Select the required build environment.
+#
+ifeq ($(X64), y)
+ CPP		:= g++ -m64
+ CC		:= gcc -m64
+ ARCH		:= x64
+ LIBX		:= lib/x64
+else
+ CPP		:= g++ -m32
+ CC		:= gcc -m32
+ ARCH		:= x86
+ LIBX		:= lib/x86
+endif
+PREPROC		:= cpp
+MCPP		:= cpp
+STRIP		:= strip
+WINDRES		:= windres
+
+SYSINC		:=
+SYSLIB		:=
+
+DEPS		= -MMD -MF $*.d -c $<
+DEPFILE		:= win32/.depends-mingw
+
+# Set up the correct toolchain flags.
+OPTS		:= -D_CRT_SECURE_NO_WARNINGS \
+		   -D_CRT_NON_CONFORMING_SWPRINTFS \
+		   -D__USE_MINGW_ANSI_STDIO_X
+AFLAGS		:= -msse2 -mfpmath=sse
+ifndef RFLAGS
+ RFLAGS		:= --input-format=rc -O coff
+endif
+COPTS		:= -Wall
+CXXOPTS		:= -Wall
+DOPTS		:= 
+LOPTS		:=
+ifeq ($(DEBUG), y)
+ OPTS		+= -D_DEBUG
+ DOPTS		:= -march=i686 -Og -ggdb
+ ROPTS		+= -D_DEBUG
+else
+ DFLAGS		:= -march=i686 -O3
+endif
+
+
+# Final versions of the toolchain flags.
+LFLAGS		:= $(LOPTS) -L../$(LIBX)
+CFLAGS		:= $(OPTS) $(COPTS) $(DOPTS) -I../include
+CXXFLAGS	:= $(OPTS) $(CXXOPTS) $(COPTS) $(DOPTS)
+
+
+# Build module rules.
+ifeq ($(AUTODEP), y)
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -c $<
+else
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) -c $<
+
+%.d:		%.c $(wildcard $*.d)
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -E $< >NUL
+
+%.d:		%.cpp $(wildcard $*.d)
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -E $< >NUL
+endif
+
+
+all:		$(PROGS).exe $(PROGS)_s.exe
+
+
+vhdcvt.exe:	vhdcvt.o
+		@echo Linking $@ ..
+		@$(CC) $(LFLAGS) -o $@ vhdcvt.o \
+			$(SYSOBJ) $(LIBS) -lminivhd.dll
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+vhdcvt_s.exe:	vhdcvt.o
+		@echo Linking $@ ..
+		@$(CC) $(LFLAGS) -o $@ $(OBJS) \
+			$(SYSOBJ) $(LIBS) -lminivhd
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+
+install:	all
+		@-copy *.exe ..\bin /y
+
+
+clean:
+		@echo Cleaning objects..
+		@-del *.o 2>NUL
+		@echo Cleaning resources..
+		@-del *.res 2>NUL
+
+clobber:	clean
+		@echo Cleaning executables..
+		@-del *.exe 2>NUL
+		@echo Cleaning DLLs..
+		@-del *.dll 2>NUL
+#		@-del win\*.manifest 2>NUL
+		@-del *.d 2>NUL
+#		@-del $(DEPFILE) 2>NUL
+
+ifneq ($(AUTODEP), y)
+depclean:
+		@-del $(DEPFILE) 2>NUL
+		@echo Creating dependencies..
+		@echo # Run "make depends" to re-create this file. >$(DEPFILE)
+
+depends:	DEPOBJ=$(OBJ:%.obj=%.d)
+depends:	depclean $(OBJ:%.obj=%.d)
+		@-cat $(DEPOBJ) >>$(DEPFILE)
+		@-del $(DEPOBJ)
+
+$(DEPFILE):
+endif
+
+
+# Module targets:
+getopt.o:	win32/getopt.c
+		@echo win32/getopt.c
+		@$(CC) $(CFLAGS) -c win32/getopt.c
+
+
+# Module dependencies.
+ifeq ($(AUTODEP), y)
+#-include $(OBJ:%.obj=%.d)  (better, but sloooowwwww)
+-include *.d
+else
+include $(wildcard $(DEPFILE))
+endif
+
+
+# End of Makefile.MinGW.

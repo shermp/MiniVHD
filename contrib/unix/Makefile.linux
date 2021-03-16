@@ -1,0 +1,229 @@
+#
+# VARCem	Virtual ARchaeological Computer EMulator.
+#		An emulator of (mostly) x86-based PC systems and devices,
+#		using the ISA,EISA,VLB,MCA  and PCI system buses, roughly
+#		spanning the era between 1981 and 1995.
+#
+#		This file is part of the VARCem Project.
+#
+#		Makefile for UNIX and Linux systems using GCC.
+#
+# Version:	@(#)Makefile.GCC	1.0.1	2021/03/16
+#
+# Author:	Fred N. van Kempen, <waltje@varcem.com>
+#
+#		Copyright 2021 Fred N. van Kempen.
+#
+#		Redistribution and  use  in source  and binary forms, with
+#		or  without modification, are permitted  provided that the
+#		following conditions are met:
+#
+#		1. Redistributions of  source  code must retain the entire
+#		   above notice, this list of conditions and the following
+#		   disclaimer.
+#
+#		2. Redistributions in binary form must reproduce the above
+#		   copyright  notice,  this list  of  conditions  and  the
+#		   following disclaimer in  the documentation and/or other
+#		   materials provided with the distribution.
+#
+#		3. Neither the  name of the copyright holder nor the names
+#		   of  its  contributors may be used to endorse or promote
+#		   products  derived from  this  software without specific
+#		   prior written permission.
+#
+# THIS SOFTWARE  IS  PROVIDED BY THE  COPYRIGHT  HOLDERS AND CONTRIBUTORS
+# "AS IS" AND  ANY EXPRESS  OR  IMPLIED  WARRANTIES,  INCLUDING, BUT  NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE  ARE  DISCLAIMED. IN  NO  EVENT  SHALL THE COPYRIGHT
+# HOLDER OR  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL,  EXEMPLARY,  OR  CONSEQUENTIAL  DAMAGES  (INCLUDING,  BUT  NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE  GOODS OR SERVICES;  LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED  AND ON  ANY
+# THEORY OF  LIABILITY, WHETHER IN  CONTRACT, STRICT  LIABILITY, OR  TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING  IN ANY  WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+
+# Defaults for several build options (possibly defined in a chained file.)
+ifndef AUTODEP
+ AUTODEP	:= n
+endif
+ifndef DEBUG
+ DEBUG		:= n
+endif
+ifndef X64
+ X64		:= n
+endif
+
+
+# Name of the projects.
+PROGS		:= vhdcvt
+
+
+# Select the desired platform.
+PLAT		:= Linux
+PLATDEFS	:= -DLINUX -DPLAT=\"$(PLAT)\"
+PLATNAME	:= linux
+PLATDIR		:= unix
+
+
+# Project settings.
+DEFS		:=
+
+
+#########################################################################
+#		Nothing should need changing from here on..		#
+#########################################################################
+VPATH		:= unix
+
+
+# Select the required build environment.
+ifeq ($(X64), y)
+ CPP		:= g++ -m64
+ CC		:= gcc -m64
+ ARCH		:= x64
+else
+ CPP		:= g++ -m32
+ CC		:= gcc -m32
+ ARCH		:= x86
+endif
+PREPROC		:= cpp
+MCPP		:= cpp
+LINK		:= gcc
+AR		:= ar
+RANLIB		:= ranlib
+STRIP		:= strip
+
+SYSINC		:=
+SYSLIB		:=
+
+DEPS		= -MMD -MF $*.d -c $<
+DEPFILE		:= $(PLATDIR)/.depends-$(PLATNAME)
+
+
+# Set up the correct toolchain flags.
+OPTS		:= -DUNIX $(PLATDEFS)
+AFLAGS		:= -msse2 -mfpmath=sse
+COPTS		:= -Wall
+CXXOPTS		:= -Wall
+DOPTS		:= 
+LOPTS		:=
+ifeq ($(DEBUG), y)
+ OPTS		+= -D_DEBUG
+ DOPTS		:= -Og -ggdb
+ ROPTS		+= -D_DEBUG
+else
+ DFLAGS		:= -O3
+endif
+SYSLIBS		:= -lgcc #-lpthread
+
+
+# Final versions of the toolchain flags.
+LFLAGS		:= -pthread $(LOPTS) -L../src
+CFLAGS		:= $(DEFS) $(OPTS) $(COPTS) $(DOPTS) -I../src \
+		   -fPIC -fno-strict-aliasing -fvisibility=hidden \
+		   -fomit-frame-pointer -mstackrealign -Wall -Wundef
+CXXFLAGS	:= -I/usr/include/c++/4.8.4 \
+		   $(DEFS) $(OPTS) $(CXXOPTS) $(COPTS) $(DOPTS) -I../src\
+		   -fPIC -fno-strict-aliasing -fvisibility=hidden \
+		   -fvisibility-inlines-hidden -Wall -Wundef -Wunused-parameter \
+		   -Wmissing-declarations -Wno-ctor-dtor-privacy -Woverloaded-virtual
+
+
+#########################################################################
+#		Create the (final) list of objects to build.		#
+#########################################################################
+
+LOBJ		:=
+
+
+# Build module rules.
+ifeq ($(AUTODEP), y)
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -c $<
+else
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) -c $<
+
+%.d:		%.c $(wildcard $*.d)
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -E $< >NUL
+
+%.d:		%.cpp $(wildcard $*.d)
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -E $< >NUL
+endif
+
+
+all:		$(PROGS) $(PROGS)_s
+
+
+$(PROGS):	$(PROGS).o
+		@echo Linking $@ ..
+		$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -lminivhd
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+$(PROGS)_s:	$(PROGS).o
+		@echo Linking $@ ..
+		$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -static -lminivhd
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+
+install:	all
+		@-mkdir ../bin
+		@-cp $(PROGS) $(PROGS)_s ../bin
+
+clean:
+		@echo Cleaning objects..
+		@-rm -f *.o
+
+clobber:	clean
+		@echo Cleaning executables..
+		@-rm -f $(PROGS) $(PROGS)_s
+		@echo Cleaning libraries..
+		@-rm -f *.so
+		@-rm -f *.a
+		@-rm -f *.d
+		@-rm -f $(DEPFILE)
+
+ifneq ($(AUTODEP), y)
+depclean:
+		@-rm -f $(DEPFILE)
+		@echo Creating dependencies..
+		@echo # Run "make depends" to re-create this file. >$(DEPFILE)
+
+depends:	DEPOBJ=$(OBJ:%.o=%.d)
+depends:	depclean $(OBJ:%.o=%.d)
+		@$(CAT) $(DEPOBJ) >>$(DEPFILE)
+#		@-rm -f $(DEPOBJ)
+
+$(DEPFILE):
+endif
+
+
+# Module dependencies.
+ifeq ($(AUTODEP), y)
+#-include $(OBJ:%.o=%.d)  (better, but sloooowwwww)
+-include *.d
+else
+include $(wildcard $(DEPFILE))
+endif
+
+
+# End of Makefile.GCC.

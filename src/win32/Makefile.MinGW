@@ -1,0 +1,304 @@
+#
+# MiniVHD	Minimalist VHD implementation in C.
+#		MiniVHD is a minimalist implementation of read/write/creation
+#		of VHD files. It is designed to read and write to VHD files
+#		at a sector level. It does not enable file access, or provide
+#		mounting options. Those features are left to more advanced
+#		libraries and/or the operating system.
+#
+#		This file is part of the MiniVHD Project.
+#
+#		Makefile for Windows systems using the MinGW32 environment.
+#
+# Version:	@(#)Makefile.MinGW	1.0.1	2021/03/16
+#
+# Author:	Fred N. van Kempen, <waltje@varcem.com>
+#
+#		Copyright 2021 Fred N. van Kempen.
+#		Copyright 2019-2021 Sherman Perry.
+#
+#		MIT License
+#
+#		Permission is hereby granted, free of  charge, to any person
+#		obtaining a copy of this software  and associated documenta-
+#		tion files (the "Software"), to deal in the Software without
+#		restriction, including without limitation the rights to use,
+#		copy, modify, merge, publish, distribute, sublicense, and/or
+#		sell copies of  the Software, and  to permit persons to whom
+#		the Software is furnished to do so, subject to the following
+#		conditions:
+#
+#		The above  copyright notice and this permission notice shall
+#		be included in  all copies or  substantial  portions of  the
+#		Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING  BUT NOT LIMITED TO THE  WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A  PARTICULAR PURPOSE AND NONINFRINGEMENT. IN  NO EVENT  SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER  IN AN ACTION OF  CONTRACT, TORT OR  OTHERWISE, ARISING
+# FROM, OUT OF  O R IN  CONNECTION WITH THE  SOFTWARE OR  THE USE  OR  OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+
+# Defaults for several build options (possibly defined in a chained file.)
+ifndef AUTODEP
+ AUTODEP	:= n
+endif
+ifndef CROSS
+ CROSS		:= n
+endif
+ifndef DEBUG
+ DEBUG		:= n
+endif
+ifndef OPTIM
+ OPTIM		:= n
+endif
+ifndef X64
+ X64		:= n
+endif
+
+
+# Name of the projects.
+PROGS		:= tester
+LIBS		:= minivhd
+ifeq ($(DEBUG), y)
+ PROGS		:= $(PROGS)-d
+ LIBS		:= $(LIBS)-d
+endif
+
+
+#########################################################################
+#		Nothing should need changing from here on..		#
+#########################################################################
+VPATH		:= win32
+
+
+#
+# Select the required build environment. We have, uhm, many..
+#
+ifneq ($(CROSS), n)
+ # Cross-compiling (under Linux), select proper version.
+ ifeq ($(X64), y)
+  MINGW		:= x86_64-w64-mingw32
+ else
+  MINGW		:= i686-w64-mingw32
+ endif
+
+ ifeq ($(X64), y)
+  CPP		:= /usr/bin/$(MINGW)-g++ -m64
+  CC		:= /usr/bin/$(MINGW)-gcc -m64
+ else
+  CPP		:= /usr/bin/$(MINGW)-g++ -m32
+  CC		:= /usr/bin/$(MINGW)-gcc -m32
+ endif
+ PREPROC	:= /usr/bin/$(MINGW)-cpp
+ WINDRES	:= /usr/bin/$(MINGW)-windres
+
+ SYSINC		:= -I/usr/$(MINGW)/include
+ SYSLIB		:= -L/usr/$(MINGW)/lib
+else
+ # Native compilation using MinGW for Windows.
+ ifeq ($(X64), y)
+  CPP		:= g++ -m64
+  CC		:= gcc -m64
+ else
+  CPP		:= g++ -m32
+  CC		:= gcc -m32
+ endif
+ PREPROC	:= cpp
+ AR		:= ar
+ RANLIB		:= ranlib
+ STRIP		:= strip
+ WINDRES	:= windres
+ ifndef CAT
+  CAT		:= cat
+ endif
+
+ SYSINC		:=
+ SYSLIB		:=
+endif
+
+DEPS		= -MMD -MF $*.d -c $<
+DEPFILE		:= win32/.depends-mingw
+
+# Set up the correct toolchain flags.
+OPTS		:= -D_CRT_NON_CONFORMING_SWPRINTFS \
+		   -D__USE_MINGW_ANSI_STDIO_X
+AFLAGS		:= -msse2 -mfpmath=sse
+RFLAGS		:= --input-format=rc -O coff
+LFLAGS		:=
+ifneq ($(CROSS), n)
+  OPTS		+= -DUSE_CROSS
+endif
+ifeq ($(X64), y)
+ ifeq ($(OPTIM), y)
+  DFLAGS	:= -march=native
+ else
+  DFLAGS	:= 
+ endif
+else
+ ifeq ($(OPTIM), y)
+  DFLAGS	:= -march=native
+ else
+  DFLAGS	:= -march=i686
+ endif
+endif
+ifeq ($(DEBUG), y)
+ DFLAGS		+= -ggdb -D_DEBUG
+ RFLAGS		+= -D_DEBUG
+ AOPTIM		:=
+ ifndef COPTIM
+  COPTIM	:= -Og
+ endif
+else
+ ifeq ($(OPTIM), y)
+  AOPTIM	:= -mtune=native
+  ifndef COPTIM
+   COPTIM	:= -O3
+  endif
+ else
+  ifndef COPTIM
+   COPTIM	:= -O3
+  endif
+ endif
+endif
+
+SYSLIBS		:= #-mwindows
+SYSLIBS		+= -static -lgcc
+
+
+# Final versions of the toolchain flags.
+CFLAGS		:= $(OPTS) $(DFLAGS) $(COPTIM) $(AOPTIM) -I. \
+		   $(AFLAGS) -fomit-frame-pointer -mstackrealign
+		   -Wall -Wundef -Wshadow -Wunused-parameter \
+		   -Wmissing-declarations
+LFLAGS		:= -L.
+
+
+#########################################################################
+#		Create the (final) list of objects to build.		#
+#########################################################################
+
+LNAME		:= lib$(LIBS)
+LOBJ		:= cwalk.o xml2_encoding.o \
+		   convert.o create.o io.o manage.o struct_rw.o util.o
+
+
+# Build module rules.
+ifeq ($(AUTODEP), y)
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -c $<
+else
+%.o:		%.c
+		@echo $<
+		@$(CC) $(CFLAGS) -c $<
+
+%.o:		%.cpp
+		@echo $<
+		@$(CPP) $(CXXFLAGS) -c $<
+
+%.d:		%.c $(wildcard $*.d)
+		@echo $<
+		@$(CC) $(CFLAGS) $(DEPS) -E $< >NUL
+
+%.d:		%.cpp $(wildcard $*.d)
+		@echo $<
+		@$(CPP) $(CXXFLAGS) $(DEPS) -E $< >NUL
+endif
+
+
+all:		$(LIBS).dll $(LNAME).a $(PROGS).exe $(PROGS)_s.exe
+
+
+$(LIBS).res:	win32/minivhd.rc
+		@echo Processing $<
+		@$(WINDRES) $(RFLAGS) -i $< -o $@
+
+$(LIBS).dll:	$(LOBJ) $(LIBS).res
+		@echo Linking $(LIBS).dll ..
+		@$(CC) $(LFLAGS) -shared -o $@ \
+			-Wl,--out-implib,$(LNAME).dll.a \
+			$(LOBJ) $(LIBS).res $(SYSLIBS)
+ifneq ($(DEBUG), y)
+		@strip --strip-unneeded $(LIBS).dll
+endif
+
+$(LNAME).a:	$(LOBJ)
+		@echo Creating $@ ..
+		@$(AR) rv $@ $(LOBJ)
+		@$(RANLIB) $@
+
+$(PROGS).exe:	$(PROGS).o
+		@echo Linking $@ ..
+		@$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -lminivhd.dll
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+$(PROGS)_s.exe:	$(PROGS).o
+		@echo Linking $@ ..
+		@$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -lminivhd
+ifneq ($(DEBUG), y)
+		@$(STRIP) $@
+endif
+
+
+install:	all
+		@-mkdir ..\bin >NUL
+		@-mkdir ..\include >NUL
+		@-mkdir ..\lib >NUL
+ifeq ($(X64), y)
+		@-mkdir ..\lib\x64 >NUL
+		@-cp $(LNAME).a $(LNAME).dll.a ../lib/x64
+else
+		@-mkdir ..\lib\x86 >NUL
+		@-cp $(LNAME).a $(LNAME).dll.a ../lib/x86
+endif
+		@-cp $(LIBS).dll ../bin
+		@-cp minivhd.h ../include
+
+clean:
+		@echo Cleaning objects..
+		@-rm -f *.o
+		@-rm -f *.res
+
+clobber:	clean
+		@echo Cleaning executables..
+		@-rm -f *.exe
+		@echo Cleaning libraries..
+		@-rm -f *.dll
+		@-rm -f *.a
+		@-rm -f *.d
+		@-rm -f $(DEPFILE)
+
+ifneq ($(AUTODEP), y)
+depclean:
+		@-rm -f $(DEPFILE)
+		@echo Creating dependencies..
+		@echo # Run "make depends" to re-create this file. >$(DEPFILE)
+
+depends:	DEPOBJ=$(LOBJ:%.o=%.d)
+depends:	depclean $(LOBJ:%.o=%.d)
+		@$(CAT) $(DEPOBJ) >>$(DEPFILE)
+#		@-rm -f $(DEPOBJ)
+
+$(DEPFILE):
+endif
+
+
+# Module dependencies.
+ifeq ($(AUTODEP), y)
+#-include $(LOBJ:%.o=%.d)  (better, but sloooowwwww)
+-include *.d
+else
+include $(wildcard $(DEPFILE))
+endif
+
+
+# End of Makefile.MinGW.
