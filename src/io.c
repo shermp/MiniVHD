@@ -5,7 +5,7 @@
  *
  *		Sector reading and writing implementations.
  *
- * Version:	@(#)io.c	1.0.1	2021/03/16
+ * Version:	@(#)io.c	1.0.2	2021/03/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -83,6 +83,7 @@ mvhd_write_empty_sectors(FILE* f, int sector_count)
 {
     uint8_t zero_bytes[MVHD_SECTOR_SIZE] = {0};
     int i;
+
     for (i = 0; i < sector_count; i++) {
         fwrite(zero_bytes, sizeof zero_bytes, 1, f);
     }
@@ -104,8 +105,9 @@ read_sect_bitmap(MVHDMeta* vhdm, int blk)
     if (vhdm->block_offset[blk] != MVHD_SPARSE_BLK) {
         mvhd_fseeko64(vhdm->f, (uint64_t)vhdm->block_offset[blk] * MVHD_SECTOR_SIZE, SEEK_SET);
         fread(vhdm->bitmap.curr_bitmap, vhdm->bitmap.sector_count * MVHD_SECTOR_SIZE, 1, vhdm->f);
-    } else
+    } else {
         memset(vhdm->bitmap.curr_bitmap, 0, vhdm->bitmap.sector_count * MVHD_SECTOR_SIZE);
+    }
 
     vhdm->bitmap.curr_block = blk;
 }
@@ -167,6 +169,7 @@ create_block(MVHDMeta* vhdm, int blk)
     mvhd_fseeko64(vhdm->f, -MVHD_FOOTER_SIZE, SEEK_END);
     fread(footer, sizeof footer, 1, vhdm->f);
     mvhd_fseeko64(vhdm->f, -MVHD_FOOTER_SIZE, SEEK_END);
+
     if (!mvhd_is_conectix_str(footer)) {
         /* Oh dear. We use the header instead, since something has gone wrong at the footer */
         mvhd_fseeko64(vhdm->f, 0, SEEK_SET);

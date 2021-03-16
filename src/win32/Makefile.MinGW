@@ -10,7 +10,7 @@
 #
 #		Makefile for Windows systems using the MinGW32 environment.
 #
-# Version:	@(#)Makefile.MinGW	1.0.1	2021/03/16
+# Version:	@(#)Makefile.MinGW	1.0.2	2021/03/16
 #
 # Author:	Fred N. van Kempen, <waltje@varcem.com>
 #
@@ -170,7 +170,7 @@ SYSLIBS		+= -static -lgcc
 
 # Final versions of the toolchain flags.
 CFLAGS		:= $(OPTS) $(DFLAGS) $(COPTIM) $(AOPTIM) -I. \
-		   $(AFLAGS) -fomit-frame-pointer -mstackrealign
+		   $(AFLAGS) -fomit-frame-pointer -mstackrealign \
 		   -Wall -Wundef -Wshadow -Wunused-parameter \
 		   -Wmissing-declarations
 LFLAGS		:= -L.

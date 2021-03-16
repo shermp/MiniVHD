@@ -5,7 +5,7 @@
  *
  *		VHD management functions (open, close, read write etc)
  *
- * Version:	@(#)manage.c	1.0.1	2021/03/16
+ * Version:	@(#)manage.c	1.0.2	2021/03/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -172,8 +172,9 @@ calc_sparse_values(MVHDMeta* vhdm)
     int bm_bytes = vhdm->sect_per_block / 8;
     vhdm->bitmap.sector_count = bm_bytes / MVHD_SECTOR_SIZE;
 
-    if (bm_bytes % MVHD_SECTOR_SIZE > 0)
+    if (bm_bytes % MVHD_SECTOR_SIZE > 0) {
         vhdm->bitmap.sector_count++;
+    }
 }
 
 
@@ -225,7 +226,8 @@ static bool
 mvhd_parent_path_exists(struct MVHDPaths* paths, uint32_t plat_code)
 {
     FILE* f;
-    int cwk_ret, ferr;
+    int ferr;
+    size_t cwk_ret;
     enum cwk_path_style style;
 
     memset(paths->joined_path, 0, sizeof paths->joined_path);
@@ -234,15 +236,16 @@ mvhd_parent_path_exists(struct MVHDPaths* paths, uint32_t plat_code)
     cwk_ret = 1;
 
     if (plat_code == MVHD_DIF_LOC_W2RU && *paths->w2ru_path) {
-        cwk_ret = (int)cwk_path_join((const char*)paths->dir_path, (const char*)paths->w2ru_path, paths->joined_path, sizeof paths->joined_path);
+        cwk_ret = cwk_path_join((const char*)paths->dir_path, (const char*)paths->w2ru_path, paths->joined_path, sizeof paths->joined_path);
     } else if (plat_code == MVHD_DIF_LOC_W2KU && *paths->w2ku_path) {
         memcpy(paths->joined_path, paths->w2ku_path, (sizeof paths->joined_path) - 1);
         cwk_ret = 0;
     } else if (plat_code == 0) {
-        cwk_ret = (int)cwk_path_join((const char*)paths->dir_path, (const char*)paths->file_name, paths->joined_path, sizeof paths->joined_path);
+        cwk_ret = cwk_path_join((const char*)paths->dir_path, (const char*)paths->file_name, paths->joined_path, sizeof paths->joined_path);
     }
-    if (cwk_ret > MVHD_MAX_PATH_BYTES)
+    if (cwk_ret > MVHD_MAX_PATH_BYTES) {
         return false;
+    }
 
     f = mvhd_fopen((const char*)paths->joined_path, "rb", &ferr);
     if (f != NULL) {
@@ -318,8 +321,9 @@ get_diff_parent_path(MVHDMeta* vhdm, int* err)
             loc_path = (unsigned char*)paths->w2ru_path;
         } else if (vhdm->sparse.par_loc_entry[i].plat_code == MVHD_DIF_LOC_W2KU) {
             loc_path = (unsigned char*)paths->w2ku_path;
-        } else
+        } else {
             continue;
+	}
 
         utf_inlen = vhdm->sparse.par_loc_entry[i].plat_data_len;
         if (utf_inlen > MVHD_MAX_PATH_BYTES) {
@@ -437,13 +441,15 @@ mvhd_file_is_vhd(FILE* f)
 {
     uint8_t con_str[8];
 
-    if (f == NULL)
+    if (f == NULL) {
 	return 0;
+    }
 
     mvhd_fseeko64(f, -MVHD_FOOTER_SIZE, SEEK_END);
     fread(con_str, sizeof con_str, 1, f);
-    if (mvhd_is_conectix_str(con_str))
+    if (mvhd_is_conectix_str(con_str)) {
 	return 1;
+    }
 
     return 0;
 }
@@ -511,10 +517,11 @@ mvhd_open(const char* path, int readonly, int* err)
     //This is safe, as we've just checked for potential overflow above
     strcpy(vhdm->filename, path);
 
-    if (readonly)
+    if (readonly) {
 	vhdm->f = mvhd_fopen((const char*)vhdm->filename, "rb", err);
-    else
+    } else {
 	vhdm->f = mvhd_fopen((const char*)vhdm->filename, "rb+", err);
+    }
     if (vhdm->f == NULL) {
         /* note, mvhd_fopen sets err for us */
         goto cleanup_vhdm;

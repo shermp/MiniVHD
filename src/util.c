@@ -5,7 +5,7 @@
  *
  *		Utility functions.
  *
- * Version:	@(#)util.c	1.0.1	2021/03/16
+ * Version:	@(#)util.c	1.0.2	2021/03/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -50,14 +50,6 @@
 #include "minivhd.h"
 #include "internal.h"
 #include "xml2_encoding.h"
-
-
-static const char MVHD_CONECTIX_COOKIE[] = "conectix";
-#if 0	//NOT_USED
-static const char MVHD_CREATOR[] = "MiniVHD";
-static const char MVHD_CREATOR_HOST_OS[] = "Wi2k";
-static const char MVHD_CXSPARSE_COOKIE[] = "cxsparse";
-#endif
 
 
 uint16_t
@@ -151,17 +143,6 @@ mvhd_to_be64(uint64_t val)
     tmp[7] = (uint8_t)((val & 0x00000000000000ff) >> 0);
 
     return ret;
-}
-
-
-bool
-mvhd_is_conectix_str(const void* buffer)
-{
-    if (strncmp(buffer, MVHD_CONECTIX_COOKIE, strlen(MVHD_CONECTIX_COOKIE)) == 0) {
-        return true;
-    }
-
-    return false;
 }
 
 

@@ -1,13 +1,13 @@
 /*
- * MiniVHD	Minimalist VHD implementation in C.
+ * libCWALK	path library for C/C++
  *
- *		This file is part of the MiniVHD Project.
+ * Version:	@(#)cwalk.c	1.0.2	2021/03/16
  *
- * Version:	@(#)cwalk.c	1.0.1	2021/03/15
- *
- * Author:	Sherman Perry, <shermperry@gmail.com>
+ * Authors:	Sherman Perry, <shermperry@gmail.com>
+ *		Leonard Iklé, <https://github.com/likle>
  *
  *		Copyright 2019-2021 Sherman Perry.
+ *		Copyright 2020 Leonard Iklé.
  *
  *		MIT License
  *

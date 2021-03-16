@@ -8,7 +8,7 @@
 #
 #		Makefile for Windows systems using the MinGW32 environment.
 #
-# Version:	@(#)Makefile.MinGW	1.0.1	2021/03/16
+# Version:	@(#)Makefile.MinGW	1.0.2	2021/03/16
 #
 # Author:	Fred N. van Kempen, <waltje@varcem.com>
 #
@@ -55,7 +55,7 @@ ifndef X64
 endif
 
 
-PROGS		:= vhdcvt.exe
+PROGS		:= vhdcvt
 SYSOBJ		:=
 
 

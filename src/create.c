@@ -3,9 +3,10 @@
  *
  *		This file is part of the MiniVHD Project.
  *
- * Version:	@(#)create.c	1.0.1	2021/03/16
+ * Version:	@(#)create.c	1.0.2	2021/03/16
  *
- * Author:	Sherman Perry, <shermperry@gmail.com>
+ * Authors:	Sherman Perry, <shermperry@gmail.com>
+ *		Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2019-2021 Sherman Perry.
  *
@@ -48,6 +49,12 @@
 #include "xml2_encoding.h"
 
 
+static const char MVHD_CONECTIX_COOKIE[] = "conectix";
+static const char MVHD_CREATOR[]	 = "mVHD";
+static const char MVHD_CREATOR_HOST_OS[] = "Wi2k";
+static const char MVHD_CXSPARSE_COOKIE[] = "cxsparse";
+
+
 /**
  * \brief Populate a VHD footer
  * 
@@ -60,20 +67,22 @@
 static void
 gen_footer(MVHDFooter* footer, uint64_t size_in_bytes, MVHDGeom* geom, MVHDType type, uint64_t sparse_header_off)
 {
-    memcpy(footer->cookie, "conectix", sizeof footer->cookie);
+    memcpy(footer->cookie, MVHD_CONECTIX_COOKIE, sizeof footer->cookie);
     footer->features = 0x00000002;
     footer->fi_fmt_vers = 0x00010000;
     footer->data_offset = (type == MVHD_TYPE_DIFF || type == MVHD_TYPE_DYNAMIC) ? sparse_header_off : 0xffffffffffffffff;
     footer->timestamp = vhd_calc_timestamp();
-    memcpy(footer->cr_app, "mvhd", sizeof footer->cr_app);
+    memcpy(footer->cr_app, MVHD_CREATOR, sizeof footer->cr_app);
     footer->cr_vers = 0x000e0000;
-    memcpy(footer->cr_host_os, "Wi2k", sizeof footer->cr_host_os);
+    memcpy(footer->cr_host_os, MVHD_CREATOR_HOST_OS, sizeof footer->cr_host_os);
     footer->orig_sz = footer->curr_sz = size_in_bytes;
     footer->geom.cyl = geom->cyl;
     footer->geom.heads = geom->heads;
     footer->geom.spt = geom->spt;
     footer->disk_type = type;
+
     mvhd_generate_uuid(footer->uuid);
+
     footer->checksum = mvhd_gen_footer_checksum(footer);
 }
 
@@ -89,7 +98,7 @@ gen_footer(MVHDFooter* footer, uint64_t size_in_bytes, MVHDGeom* geom, MVHDType 
 static void
 gen_sparse_header(MVHDSparseHeader* header, uint32_t num_blks, uint64_t bat_offset, uint32_t block_size_in_sectors)
 {
-    memcpy(header->cookie, "cxsparse", sizeof header->cookie);
+    memcpy(header->cookie, MVHD_CXSPARSE_COOKIE, sizeof header->cookie);
     header->data_offset = 0xffffffffffffffff;
     header->bat_offset = bat_offset;
     header->head_vers = 0x00010000;
@@ -422,17 +431,21 @@ create_sparse_diff(const char* path, const char* par_path, uint64_t size_in_byte
      * */
     if (par_vhdm != NULL) {
         uint64_t curr_pos = (uint64_t)mvhd_ftello64(f);
+
         /* Double check my sums... */
         assert(curr_pos == par_loc_offset);
+
         /* Fill the space required for location data with zero */
         uint8_t empty_sect[MVHD_SECTOR_SIZE] = {0};
         int i;
         uint32_t j;
+
         for (i = 0; i < 2; i++) {
             for (j = 0; j < (vhdm->sparse.par_loc_entry[i].plat_data_space / MVHD_SECTOR_SIZE); j++) {
                 fwrite(empty_sect, sizeof empty_sect, 1, f);
             }
         }
+
         /* Now write the location entries */
         mvhd_fseeko64(f, vhdm->sparse.par_loc_entry[0].plat_data_offset, SEEK_SET);
         fwrite(w2ku_path_buff, vhdm->sparse.par_loc_entry[0].plat_data_len, 1, f);
@@ -457,8 +470,9 @@ cleanup_vhdm:
     vhdm = NULL;
 
 cleanup_par_vhdm:
-    if (par_vhdm != NULL)
+    if (par_vhdm != NULL) {
         mvhd_close(par_vhdm);
+    }
 
 end:    
     free(w2ku_path_buff);    
@@ -551,4 +565,15 @@ mvhd_create_ex(MVHDCreationOptions options, int* err)
     }
 
     return NULL; /* Make the compiler happy */
+}
+
+
+bool
+mvhd_is_conectix_str(const void* buffer)
+{
+    if (strncmp(buffer, MVHD_CONECTIX_COOKIE, strlen(MVHD_CONECTIX_COOKIE)) == 0) {
+        return true;
+    }
+
+    return false;
 }
