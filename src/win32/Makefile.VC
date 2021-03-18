@@ -1,0 +1,278 @@
+#
+# MiniVHD	Minimalist VHD implementation in C.
+#		MiniVHD is a minimalist implementation of read/write/creation
+#		of VHD files. It is designed to read and write to VHD files
+#		at a sector level. It does not enable file access, or provide
+#		mounting options. Those features are left to more advanced
+#		libraries and/or the operating system.
+#
+#		This file is part of the MiniVHD Project.
+#
+#		Makefile for Windows using Microsoft Visual Studio.
+#
+# Version:	@(#)Makefile.VC	1.0.1	2021/03/16
+#
+# Author:	Fred N. van Kempen, <waltje@varcem.com>
+#
+#		Copyright 2021 Fred N. van Kempen.
+#		Copyright 2019-2021 Sherman Perry.
+#
+#		MIT License
+#
+#		Permission is hereby granted, free of  charge, to any person
+#		obtaining a copy of this software  and associated documenta-
+#		tion files (the "Software"), to deal in the Software without
+#		restriction, including without limitation the rights to use,
+#		copy, modify, merge, publish, distribute, sublicense, and/or
+#		sell copies of  the Software, and  to permit persons to whom
+#		the Software is furnished to do so, subject to the following
+#		conditions:
+#
+#		The above  copyright notice and this permission notice shall
+#		be included in  all copies or  substantial  portions of  the
+#		Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING  BUT NOT LIMITED TO THE  WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A  PARTICULAR PURPOSE AND NONINFRINGEMENT. IN  NO EVENT  SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER  IN AN ACTION OF  CONTRACT, TORT OR  OTHERWISE, ARISING
+# FROM, OUT OF  O R IN  CONNECTION WITH THE  SOFTWARE OR  THE USE  OR  OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+
+
+# Defaults for several build options (possibly defined in a chained file.)
+ifndef AUTODEP
+ AUTODEP	:= n
+endif
+ifndef DEBUG
+ DEBUG		:= n
+endif
+ifndef OPTIM
+ OPTIM		:= n
+endif
+ifndef X64
+ X64		:= n
+endif
+
+
+# Name of the projects.
+PROGS		:= tester
+LIBS		:= minivhd
+ifeq ($(DEBUG), y)
+ PROGS		:= $(PROGS)-d
+ LIBS		:= $(LIBS)-d
+endif
+
+
+#########################################################################
+#		Nothing should need changing from here on..		#
+#########################################################################
+
+VPATH		:= win32
+
+
+#
+# Select the required build environment.
+#
+VCOPTS		:= -D_CRT_SECURE_NO_WARNINGS -D__MSC__
+ifeq ($(X64), y)
+ ARCH		:= x64
+ CPP		:= cl -nologo
+ CC		:= cl -nologo
+ AR		:= lib -nologo
+else
+ ARCH		:= x86
+ CPP		:= cl -nologo
+ CC		:= cl -nologo #-TP
+ AR		:= lib -nologo
+endif
+PREPROC		:= cl -nologo -EP
+MCPP		:= mcpp.exe
+LINK		:= link -nologo
+WINDRES		:= rc -nologo -r -d_MSC_VER
+
+SYSINC		:=
+SYSLIB		:=
+
+DEPS		= -MMD -MF $*.d
+DEPFILE		:= win32\.depends-msvc
+
+
+# Set up the correct toolchain flags.
+OPTS		:= $(VCOPTS) \
+		   -D_USE_MATH_DEFINES \
+		   -D_CRT_NONSTDC_NO_DEPRECATE \
+		   -D_WINSOCK_DEPRECATED_NO_WARNINGS \
+		   -D_CRT_SECURE_NO_WARNINGS \
+		   -D_CRT_STDIO_ISO_WIDE_SPECIFIERS
+AFLAGS		:= #/arch:SSE2
+RFLAGS		:= /n
+COPTS		:= -W3
+CXXOPTS		:= -EHsc
+DOPTS		:= 
+ifeq ($(X64), y)
+LOPTS		:= -MACHINE:$(ARCH)
+LOPTS_C		:= -SUBSYSTEM:CONSOLE
+LOPTS_W		:= -SUBSYSTEM:WINDOWS
+else
+LOPTS		:= -MACHINE:$(ARCH)
+LOPTS_C		:= -SUBSYSTEM:CONSOLE,5.01
+LOPTS_W		:= -SUBSYSTEM:WINDOWS,5.01
+endif
+OPTS		+= $(SYSINC)
+ifeq ($(OPTIM), y)
+ AFLAGS		:= /arch:AVX2
+endif
+ifeq ($(DEBUG), y)
+ OPTS		+= -D_DEBUG
+ DOPTS		+= -MTd -Gs -Zi
+ RFLAGS		+= -D_DEBUG
+ LOPTS		+= -debug
+ ifndef COPTIM
+  COPTIM	:= -Od
+ endif
+else
+ LOPTS		+= #-LTCG
+ DOPTS		:= -MT #-GL
+ ifndef COPTIM
+  COPTIM	:= -O2
+ endif
+endif
+SYSLIBS		:=
+ifeq ($(DEBUG), y)
+SYSLIBS		+=
+endif
+
+
+# Final versions of the toolchain flags.
+LFLAGS		:= $(LOPTS)
+CFLAGS		:= $(OPTS) $(COPTS) $(COPTIM) $(DOPTS) $(AFLAGS) -I.
+CXXFLAGS	:= $(OPTS) $(CXXOPTS) $(COPTS) $(COPTIM) $(DOPTS) $(AFLAGS) -I.
+
+
+#########################################################################
+#		Create the (final) list of objects to build.		#
+#########################################################################
+
+LOBJ		:= cwalk.obj xml2_encoding.obj \
+		   convert.obj create.obj io.obj manage.obj \
+		   struct_rw.obj util.obj
+LOBJ_S		:= cwalk.sbj xml2_encoding.sbj \
+		   convert.sbj create.sbj io.sbj manage.sbj \
+		   struct_rw.sbj util.sbj
+
+
+# Build module rules.
+ifeq ($(AUTODEP), y)
+%.obj:		%.c
+		@$(CC) $(CFLAGS) -Fo$@ -c $<
+		@$(MCPP) $(OPTS) $(DEPS) $<
+
+%.obj:		%.cpp
+		@$(CPP) $(CXXFLAGS) -Fo$@ -c $<
+		@$(MCPP) $(OPTS) $(DEPS) $<
+else
+%.obj:		%.c
+		@$(CC) $(CFLAGS) -Fo$@ -c $<
+
+%.sbj:		%.c
+		@$(CC) $(CFLAGS) -DSTATIC -Fo$@ -c $<
+
+%.obj:		%.cpp
+		@$(CPP) $(CXXFLAGS) -Fo$@ -c $<
+
+%.d:		%.c $(wildcard $*.d)
+		@$(MCPP) $(OPTS) $(DEPS) $< >NUL
+
+%.d:		%.cpp $(wildcard $*.d)
+		@$(MCPP) $(OPTS) $(DEPS) $< >NUL
+endif
+
+
+all:		$(LIBS).dll $(LIBS)_s.lib $(PROGS).exe $(PROGS)_s.exe
+
+$(LIBS).res:	win32\$(LIBS).rc
+		@echo Processing $<
+		@$(WINDRES) $(RFLAGS) -fo$@ $<
+
+$(LIBS).dll:	$(LOBJ) $(LIBS).res
+		@echo Linking $(LIBS).dll ..
+		@$(LINK) /DLL $(LFLAGS) $(LOPTS_W) -OUT:$(LIBS).dll \
+			$(LOBJ) $(LIBS).res $(SYSLIBS)
+
+$(LIBS)_s.lib:	$(LOBJ_S)
+		@echo Creating $@ ..
+		@$(AR) /OUT:$@ $(LOBJ_S)
+
+$(PROGS).exe:	$(PROGS).obj
+		@echo Linking $@ ..
+		@$(LINK) $(LFLAGS) /OUT:$@ $(PROGS).obj $(SYSLIBS) minivhd.lib
+
+$(PROGS)_s.exe:	$(PROGS).sbj
+		@echo Linking $@ ..
+		@$(LINK) $(LFLAGS) /OUT:$@ $(PROGS).sbj $(SYSLIBS) minivhd_s.lib
+
+
+install:	all
+		@-mkdir ..\bin >NUL
+		@-mkdir ..\include >NUL
+		@-mkdir ..\lib >NUL
+ifeq ($(X64), y)
+		@-mkdir ..\lib\x64 >NUL
+		@-copy *.lib ..\lib\x64
+else
+		@-mkdir ..\lib\x86 >NUL
+		@-copy *.lib ..\lib\x86
+endif
+		@-copy $(LIBS).dll ..\bin
+		@-copy minivhd.h ..\include
+
+
+clean:
+		@echo Cleaning objects..
+		@-del *.obj 2>NUL
+		@-del *.sbj 2>NUL
+		@-del *.res 2>NUL
+
+clobber:	clean
+		@echo Cleaning executables..
+		@-del *.exe 2>NUL
+ifeq ($(DEBUG), y)
+		@-del *.ilk 2>NUL
+		@-del *.pdb 2>NUL
+endif
+		@echo Cleaning libraries..
+		@-del *.dll 2>NUL
+		@-del *.exp 2>NUL
+		@-del *.lib 2>NUL
+		@-del *.d 2>NUL
+#		@del $(DEPFILE) 2>NUL
+
+
+ifneq ($(AUTODEP), y)
+depclean:
+		@del $(DEPFILE) 2>NUL
+		@echo Creating dependencies..
+		@echo # Run "make depends" to re-create this file. >$(DEPFILE)
+
+depends:	DEPOBJ=$(OBJ:%.obj=%.d)
+depends:	depclean $(OBJ:%.obj=%.d)
+		@-cat $(DEPOBJ) >>$(DEPFILE)
+		@del $(DEPOBJ)
+
+$(DEPFILE):
+endif
+
+
+# Module dependencies.
+ifeq ($(AUTODEP), y)
+#-include $(OBJ:%.obj=%.d)  (better, but sloooowwwww)
+-include *.d
+else
+include $(wildcard $(DEPFILE))
+endif
+
+
+# End of Makefile.VC.

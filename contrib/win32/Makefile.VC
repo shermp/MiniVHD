@@ -1,0 +1,255 @@
+#
+# VARCem	Virtual ARchaeological Computer EMulator.
+#		An emulator of (mostly) x86-based PC systems and devices,
+#		using the ISA,EISA,VLB,MCA  and PCI system buses, roughly
+#		spanning the era between 1981 and 1995.
+#
+#		This file is part of the VARCem Project.
+#
+#		Makefile for Windows using Microsoft Visual Studio.
+#
+# Version:	@(#)Makefile.VC	1.0.1	2021/03/16
+#
+# Author:	Fred N. van Kempen, <waltje@varcem.com>
+#
+#		Copyright 2021 Fred N. van Kempen.
+#
+#		Redistribution and  use  in source  and binary forms, with
+#		or  without modification, are permitted  provided that the
+#		following conditions are met:
+#
+#		1. Redistributions of  source  code must retain the entire
+#		   above notice, this list of conditions and the following
+#		   disclaimer.
+#
+#		2. Redistributions in binary form must reproduce the above
+#		   copyright  notice,  this list  of  conditions  and  the
+#		   following disclaimer in  the documentation and/or other
+#		   materials provided with the distribution.
+#
+#		3. Neither the  name of the copyright holder nor the names
+#		   of  its  contributors may be used to endorse or promote
+#		   products  derived from  this  software without specific
+#		   prior written permission.
+#
+# THIS SOFTWARE  IS  PROVIDED BY THE  COPYRIGHT  HOLDERS AND CONTRIBUTORS
+# "AS IS" AND  ANY EXPRESS  OR  IMPLIED  WARRANTIES,  INCLUDING, BUT  NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE  ARE  DISCLAIMED. IN  NO  EVENT  SHALL THE COPYRIGHT
+# HOLDER OR  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL,  EXEMPLARY,  OR  CONSEQUENTIAL  DAMAGES  (INCLUDING,  BUT  NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE  GOODS OR SERVICES;  LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED  AND ON  ANY
+# THEORY OF  LIABILITY, WHETHER IN  CONTRACT, STRICT  LIABILITY, OR  TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING  IN ANY  WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+
+# Defaults for several build options (possibly defined in a chained file.)
+ifndef AUTODEP
+ AUTODEP	:= n
+endif
+ifndef DEBUG
+ DEBUG		:= n
+endif
+ifndef OPTIM
+ OPTIM		:= n
+endif
+ifndef X64
+ X64		:= n
+endif
+
+
+# Name of the projects.
+PROGS		:= vhdcvt
+ifeq ($(DEBUG), y)
+ PROGS		:= $(PROGS)-d
+endif
+
+
+#########################################################################
+#		Nothing should need changing from here on..		#
+#########################################################################
+
+VPATH		:= win32
+
+
+#
+# Select the required build environment.
+#
+VCOPTS		:= -D_CRT_SECURE_NO_WARNINGS -D__MSC__
+ifeq ($(X64), y)
+ ARCH		:= x64
+ CPP		:= cl -nologo
+ CC		:= cl -nologo
+ AR		:= lib -nologo
+ LIBX		:= lib/x64
+else
+ ARCH		:= x86
+ CPP		:= cl -nologo
+ CC		:= cl -nologo #-TP
+ AR		:= lib -nologo
+ LIBX		:= lib/x86
+endif
+PREPROC		:= cl -nologo -EP
+MCPP		:= mcpp.exe
+LINK		:= link -nologo
+WINDRES		:= rc -nologo -r -d_MSC_VER
+
+SYSINC		:=
+SYSLIB		:=
+SYSOBJ		:= setargv.obj
+
+DEPS		= -MMD -MF $*.d
+DEPFILE		:= win32\.depends-msvc
+
+
+# Set up the correct toolchain flags.
+OPTS		:= $(VCOPTS) \
+		   -D_USE_MATH_DEFINES \
+		   -D_CRT_NONSTDC_NO_DEPRECATE \
+		   -D_WINSOCK_DEPRECATED_NO_WARNINGS \
+		   -D_CRT_SECURE_NO_WARNINGS \
+		   -D_CRT_STDIO_ISO_WIDE_SPECIFIERS
+AFLAGS		:= #/arch:SSE2
+RFLAGS		:= /n
+COPTS		:= -W3
+CXXOPTS		:= -EHsc
+DOPTS		:= 
+ifeq ($(X64), y)
+LOPTS		:= -MACHINE:$(ARCH)
+LOPTS_C		:= -SUBSYSTEM:CONSOLE
+LOPTS_W		:= -SUBSYSTEM:WINDOWS
+else
+LOPTS		:= -MACHINE:$(ARCH)
+LOPTS_C		:= -SUBSYSTEM:CONSOLE,5.01
+LOPTS_W		:= -SUBSYSTEM:WINDOWS,5.01
+endif
+OPTS		+= $(SYSINC)
+ifeq ($(OPTIM), y)
+ AFLAGS		:= /arch:AVX2
+endif
+ifeq ($(DEBUG), y)
+ OPTS		+= -D_DEBUG
+ DOPTS		+= -MTd -Gs -Zi
+ RFLAGS		+= -D_DEBUG
+ LOPTS		+= -debug
+ ifndef COPTIM
+  COPTIM	:= -Od
+ endif
+else
+ LOPTS		+= #-LTCG
+ DOPTS		:= -MT #-GL
+ ifndef COPTIM
+  COPTIM	:= -O2
+ endif
+endif
+SYSLIBS		:=
+ifeq ($(DEBUG), y)
+SYSLIBS		+=
+endif
+
+
+# Final versions of the toolchain flags.
+LFLAGS		:= $(LOPTS) -LIBPATH:../$(LIBX)
+CFLAGS		:= $(OPTS) $(COPTS) $(COPTIM) $(DOPTS) $(AFLAGS) \
+		   -Iwin32 -I../include
+CXXFLAGS	:= $(OPTS) $(CXXOPTS) $(COPTS) $(COPTIM) $(DOPTS) $(AFLAGS) \
+		   -Iwin32 -I../include
+
+
+#########################################################################
+#		Create the (final) list of objects to build.		#
+#########################################################################
+
+OBJ		:= 
+
+
+# Build module rules.
+ifeq ($(AUTODEP), y)
+%.obj:		%.c
+		@$(CC) $(CFLAGS) -Fo$@ -c $<
+		@$(MCPP) $(OPTS) $(DEPS) $<
+
+%.obj:		%.cpp
+		@$(CPP) $(CXXFLAGS) -Fo$@ -c $<
+		@$(MCPP) $(OPTS) $(DEPS) $<
+else
+%.obj:		%.c
+		@$(CC) $(CFLAGS) -Fo$@ -c $<
+
+%.sbj:		%.c
+		@$(CC) $(CFLAGS) -DSTATIC -Fo$@ -c $<
+
+%.obj:		%.cpp
+		@$(CPP) $(CXXFLAGS) -Fo$@ -c $<
+
+%.d:		%.c $(wildcard $*.d)
+		@$(MCPP) $(OPTS) $(DEPS) $< >NUL
+
+%.d:		%.cpp $(wildcard $*.d)
+		@$(MCPP) $(OPTS) $(DEPS) $< >NUL
+endif
+
+
+all:		$(PROGS).exe $(PROGS)_s.exe
+
+
+vhdcvt.exe:	getopt.obj vhdcvt.obj
+		@echo Linking $@ ..
+		@$(LINK) $(LFLAGS) /OUT:$@ \
+			$(SYSOBJ) getopt.obj vhdcvt.obj $(SYSLIBS) minivhd.lib
+
+vhdcvt_s.exe:	getopt.obj vhdcvt.sbj
+		@echo Linking $@ ..
+		@$(LINK) $(LFLAGS) /OUT:$@ \
+			$(SYSOBJ) getopt.obj vhdcvt.sbj $(SYSLIBS) minivhd_s.lib
+
+
+clean:
+		@echo Cleaning objects..
+		@-del *.obj 2>NUL
+		@-del *.sbj 2>NUL
+		@-del *.res 2>NUL
+
+clobber:	clean
+		@echo Cleaning executables..
+		@-del *.exe 2>NUL
+ifeq ($(DEBUG), y)
+		@-del *.ilk 2>NUL
+		@-del *.pdb 2>NUL
+endif
+		@echo Cleaning libraries..
+		@-del *.dll 2>NUL
+		@-del *.exp 2>NUL
+		@-del *.lib 2>NUL
+		@-del *.d 2>NUL
+#		@del $(DEPFILE) 2>NUL
+
+
+ifneq ($(AUTODEP), y)
+depclean:
+		@del $(DEPFILE) 2>NUL
+		@echo Creating dependencies..
+		@echo # Run "make depends" to re-create this file. >$(DEPFILE)
+
+depends:	DEPOBJ=$(OBJ:%.obj=%.d)
+depends:	depclean $(OBJ:%.obj=%.d)
+		@-cat $(DEPOBJ) >>$(DEPFILE)
+		@del $(DEPOBJ)
+
+$(DEPFILE):
+endif
+
+
+# Module dependencies.
+ifeq ($(AUTODEP), y)
+#-include $(OBJ:%.obj=%.d)  (better, but sloooowwwww)
+-include *.d
+else
+include $(wildcard $(DEPFILE))
+endif
+
+
+# End of Makefile.VC.

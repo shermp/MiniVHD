@@ -1,7 +1,7 @@
 # Credits
-MiniVHD Copyright (c) 2019 Sherman Perry
+MiniVHD Copyright 2019-2021 Sherman Perry.
 
-MiniVHD was made possible with the help of the following projects
+MiniVHD was made possible with the help of the following projects:
 
 ### libxml2
 **Project Home:** http://www.xmlsoft.org/

@@ -1,0 +1,2 @@
+minivhd_test.o: minivhd_test.c ../include/minivhd.h
+vhdcvt.o: vhdcvt.c ../include/minivhd.h
