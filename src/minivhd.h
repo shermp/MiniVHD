@@ -10,7 +10,7 @@
  *
  *		Definitions for the MiniVHD library.
  *
- * Version:	@(#)minivhd.h	1.0.1	2021/03/15
+ * Version:	@(#)minivhd.h	1.0.1	2021/03/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -166,7 +166,7 @@ MVHD_API int mvhd_file_is_vhd(FILE* f);
  * 
  * \param [in] Absolute path to VHD file. Relative path will cause issues when opening
  * a differencing VHD file
- * \param [in] readonly set this to true to open the VHD in a read only manner
+ * \param [in] readonly set this to 1 to open the VHD in a read only manner
  * \param [out] err will be set if the VHD fails to open. Value could be one of 
  * MVHD_ERR_MEM, MVHD_ERR_FILE, MVHD_ERR_NOT_VHD, MVHD_ERR_FOOTER_CHECKSUM, MVHD_ERR_SPARSE_CHECKSUM, 
  * MVHD_ERR_TYPE, MVHD_ERR_TIMESTAMP

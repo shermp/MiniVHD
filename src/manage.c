@@ -433,8 +433,8 @@ mvhd_version_id(void)
  *
  * \param [in] f file to test
  *
- * \retval true if f is a VHD
- * \retval false if f is not a VHD
+ * \retval 1 if f is a VHD
+ * \retval 0 if f is not a VHD
  */
 int
 mvhd_file_is_vhd(FILE* f)

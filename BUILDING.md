@@ -63,13 +63,9 @@ Building the emulator is also possible using the free **MinGW** compiler toolset
 
       `pacman -S --needed base-devel mingw-w64-i686-toolchain \`
 
-      `mingw-w64-x86_64-toolchain git subversion mercurial \`
+      `mingw-w64-x86_64-toolchain git`
 
-      `mingw-w64-i686-cmake mingw-w64-x86_64-cmake \`
-
-      `mingw-w64-i686-libpng mingw-w64-x86_64-libpng`
-
-    (the backslashes are only for clarity; you can type it as one
+    (the backslashe is only for clarity; you can type it as one
     single line if you wish.)
 
     Pacman will show you the various packages and sub-packages to
@@ -86,13 +82,7 @@ Building the emulator is also possible using the free **MinGW** compiler toolset
 
     just so we know this is done.
 
-5.  You may want to install a text editor of choice; in our case, we
-    will install the **vi** (or, really, **Vim**) editor, using the package
-    manager:
-
-      `pacman -S vim`
-
-    Again, make sure this step worked.
+5.  Optionally, you may want to install a text editor of choice.
 
 6.  Finally, we are good to go at compiling the MiniVHD sources.
 
