@@ -10,7 +10,6 @@
  * Author:	Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2021 Fred N. van Kempen.
- *		Copyright 2019-2021 Sherman Perry.
  *
  *		MIT License
  *

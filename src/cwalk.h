@@ -1,7 +1,7 @@
 /*
  * libCWALK	path library for C/C++
  *
- * Version:	@(#)cwalk.c	1.0.2	2021/03/16
+ * Version:	@(#)cwalk.h	1.0.3	2021/03/22
  *
  * Authors:	Sherman Perry, <shermperry@gmail.com>
  *		Leonard Iklé, <https://github.com/likle>
