@@ -10,7 +10,7 @@
  *
  *		Definitions for the MiniVHD library.
  *
- * Version:	@(#)minivhd.h	1.0.1	2021/03/16
+ * Version:	@(#)minivhd.h	1.0.2	2021/03/22
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -155,6 +155,15 @@ MVHD_API const char* mvhd_strerr(MVHDError err);
  * \retval 0 if f is not a VHD
  */
 MVHD_API int mvhd_file_is_vhd(FILE* f);
+
+/**
+ * \brief Return the file type of the given file
+ * 
+ * \param [in] vhdm VHD to check.
+ * 
+ * \retval one of the defined MVHDType values
+ */
+MVHD_API MVHDType mvhd_get_type(MVHDMeta* vhdm);
 
 /**
  * \brief Open a VHD image for reading and/or writing

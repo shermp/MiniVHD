@@ -5,7 +5,7 @@
  *
  *		Utility functions.
  *
- * Version:	@(#)util.c	1.0.2	2021/03/16
+ * Version:	@(#)util.c	1.0.3	2021/03/22
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -398,7 +398,7 @@ mvhd_strerr(MVHDError err)
 		break;
 
 	case MVHD_ERR_CONV_SIZE:
-		s = "error converting image. Size mismatch detechted";
+		s = "error converting image. Size mismatch detected";
 		break;
 
 	default:
