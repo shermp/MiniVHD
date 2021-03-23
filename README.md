@@ -14,8 +14,7 @@ MiniVHD aims to implement as much of the VHD specification as possible. Features
 * Simple to include and use (I hope)
 
 ## Usage
-Drop the source code in your project, and add the C files to your build system. No compiler flags are required.
 
-Include `minivhd.h` in your source to get started. See `minivhd.h` for documentation of the API.
+Include `minivhd.h` in your source to get started. See `minivhd.h` for documentation of the API.  Then link the application with the library (-lminivhd for UNIX and WinGW, or minivhd.lib for Visual Studio on Windows.)
 
 **Please note, an older version of this library can be found in the `minivhd-v1` branch of this repository, if required for some reason.**

@@ -5,12 +5,11 @@
  *
  *		Define library version and build info.
  *
- * Version:	@(#)version.h	1.0.1	2021/03/15
+ * Version:	@(#)version.h	1.0.2	2021/03/22
  *
  * Author:	Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2021 Fred N. van Kempen.
- *		Copyright 2019-2021 Sherman Perry.
  *
  *		MIT License
  *
@@ -45,7 +44,7 @@
 /* Version info. */
 #define LIB_VER_MAJOR	1
 #define LIB_VER_MINOR	0
-#define LIB_VER_REV	1
+#define LIB_VER_REV	2
 #define LIB_VER_PATCH	0
 
 

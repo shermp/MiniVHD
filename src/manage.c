@@ -5,7 +5,7 @@
  *
  *		VHD management functions (open, close, read write etc)
  *
- * Version:	@(#)manage.c	1.0.2	2021/03/16
+ * Version:	@(#)manage.c	1.0.3	2021/03/22
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -717,4 +717,11 @@ mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors)
     vhdm->write_sectors(vhdm, offset, remain, vhdm->format_buffer.zero_data);
 
     return 0;
+}
+
+
+MVHDType
+mvhd_get_type(MVHDMeta* vhdm)
+{
+    return vhdm->footer.disk_type;
 }
