@@ -5,7 +5,17 @@
  *
  *		Header and footer serialize/deserialize functions.
  *
- * Version:	@(#)struct_rw.c	1.0.1	2021/03/16
+ *		Read data from footer into the struct members, swapping
+ *		endian where necessary.
+ *
+ * NOTE:	Order matters here!
+ *		We must read each field in the order the struct is in.
+ *		Doing this may be less elegant than performing a memcpy
+ *		to a packed struct, but it avoids potential data alignment
+ *		issues, and the endian swapping allows us to use the fields
+ *		directly.
+ *
+ * Version:	@(#)struct_rw.c	1.0.2	2021/04/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -42,16 +52,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
-
-
-/*  Read data from footer into the struct members, swapping endian where necessary
-    Note: order matters here! We must read each field in the order the struct is in.
-    Doing this may be less elegant than performing a memcpy to a packed struct, but
-    it avoids potential data alignment issues, and the endian swapping allows us to
-    use the fields directly. */
 
 
 /**
@@ -67,18 +70,18 @@ next_buffer_to_struct(void* struct_memb, size_t memb_size, bool req_endian, uint
 {
     memcpy(struct_memb, *buffer, memb_size);
 
-    if (req_endian) {
-        switch (memb_size) {
+    if (req_endian) switch (memb_size) {
         case 2:
             *(uint16_t*)(struct_memb) = mvhd_from_be16(*(uint16_t*)(struct_memb));
             break;
+
         case 4:
             *(uint32_t*)(struct_memb) = mvhd_from_be32(*(uint32_t*)(struct_memb));
             break;
+
         case 8:
             *(uint64_t*)(struct_memb) = mvhd_from_be64(*(uint64_t*)(struct_memb));
             break;
-        }
     }
 
     *buffer += memb_size;
@@ -100,18 +103,18 @@ next_struct_to_buffer(void* struct_memb, size_t memb_size, bool req_endian, uint
 
     memcpy(buf_ptr, struct_memb, memb_size);
 
-    if (req_endian) {
-        switch (memb_size) {
+    if (req_endian) switch (memb_size) {
         case 2:
             *((uint16_t*)buf_ptr) = mvhd_to_be16(*(uint16_t*)(struct_memb));
             break;
+
         case 4:
             *((uint32_t*)buf_ptr) = mvhd_to_be32(*(uint32_t*)(struct_memb));
             break;
+
         case 8:
             *((uint64_t*)buf_ptr) = mvhd_to_be64(*(uint64_t*)(struct_memb));
             break;
-        }
     }
 
     buf_ptr += memb_size;
@@ -175,6 +178,7 @@ void
 mvhd_buffer_to_header(MVHDSparseHeader* header, uint8_t* buffer)
 {
     uint8_t* buff_ptr = buffer;
+    int i;
 
     next_buffer_to_struct(&header->cookie, sizeof header->cookie, false, &buff_ptr);
     next_buffer_to_struct(&header->data_offset, sizeof header->data_offset, true, &buff_ptr);
@@ -188,7 +192,6 @@ mvhd_buffer_to_header(MVHDSparseHeader* header, uint8_t* buffer)
     next_buffer_to_struct(&header->reserved_1, sizeof header->reserved_1, true, &buff_ptr);
     next_buffer_to_struct(&header->par_utf16_name, sizeof header->par_utf16_name, false, &buff_ptr);
 
-    int i;
     for (i = 0; i < 8; i++) {
         next_buffer_to_struct(&header->par_loc_entry[i].plat_code, sizeof header->par_loc_entry[i].plat_code, true, &buff_ptr);
         next_buffer_to_struct(&header->par_loc_entry[i].plat_data_space, sizeof header->par_loc_entry[i].plat_data_space, true, &buff_ptr);
@@ -205,6 +208,7 @@ void
 mvhd_header_to_buffer(MVHDSparseHeader* header, uint8_t* buffer)
 {
     uint8_t* buff_ptr = buffer;
+    int i;
 
     next_struct_to_buffer(&header->cookie, sizeof header->cookie, false, &buff_ptr);
     next_struct_to_buffer(&header->data_offset, sizeof header->data_offset, true, &buff_ptr);
@@ -218,7 +222,6 @@ mvhd_header_to_buffer(MVHDSparseHeader* header, uint8_t* buffer)
     next_struct_to_buffer(&header->reserved_1, sizeof header->reserved_1, true, &buff_ptr);
     next_struct_to_buffer(&header->par_utf16_name, sizeof header->par_utf16_name, false, &buff_ptr);
 
-    int i;
     for (i = 0; i < 8; i++) {
         next_struct_to_buffer(&header->par_loc_entry[i].plat_code, sizeof header->par_loc_entry[i].plat_code, true, &buff_ptr);
         next_struct_to_buffer(&header->par_loc_entry[i].plat_data_space, sizeof header->par_loc_entry[i].plat_data_space, true, &buff_ptr);

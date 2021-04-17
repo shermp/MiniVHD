@@ -10,7 +10,7 @@
 #
 #		Makefile for Windows systems using the MinGW32 environment.
 #
-# Version:	@(#)Makefile.MinGW	1.0.2	2021/03/16
+# Version:	@(#)Makefile.MinGW	1.0.3	2021/04/16
 #
 # Author:	Fred N. van Kempen, <waltje@varcem.com>
 #
@@ -57,6 +57,9 @@ endif
 ifndef X64
  X64		:= n
 endif
+ifndef STATIC
+ STATIC		:= n
+endif
 
 
 # Name of the projects.
@@ -79,6 +82,7 @@ VPATH		:= win32
 #
 ifneq ($(CROSS), n)
  # Cross-compiling (under Linux), select proper version.
+ PREFIX		:= /usr/bin/
  ifeq ($(X64), y)
   MINGW		:= x86_64-w64-mingw32
  else
@@ -86,14 +90,14 @@ ifneq ($(CROSS), n)
  endif
 
  ifeq ($(X64), y)
-  CPP		:= /usr/bin/$(MINGW)-g++ -m64
-  CC		:= /usr/bin/$(MINGW)-gcc -m64
+  CPP		:= $(PREFIX)/$(MINGW)-g++ -m64
+  CC		:= $(PREFIX)/$(MINGW)-gcc -m64
  else
-  CPP		:= /usr/bin/$(MINGW)-g++ -m32
-  CC		:= /usr/bin/$(MINGW)-gcc -m32
+  CPP		:= $(PREFIX)/$(MINGW)-g++ -m32
+  CC		:= $(PREFIX)/$(MINGW)-gcc -m32
  endif
- PREPROC	:= /usr/bin/$(MINGW)-cpp
- WINDRES	:= /usr/bin/$(MINGW)-windres
+ PREPROC	:= $(PREFIX)/$(MINGW)-cpp
+ WINDRES	:= $(PREFIX)/$(MINGW)-windres
 
  SYSINC		:= -I/usr/$(MINGW)/include
  SYSLIB		:= -L/usr/$(MINGW)/lib
@@ -125,6 +129,9 @@ DEPFILE		:= win32/.depends-mingw
 # Set up the correct toolchain flags.
 OPTS		:= -D_CRT_NON_CONFORMING_SWPRINTFS \
 		   -D__USE_MINGW_ANSI_STDIO_X
+ifeq ($(STATIC), y)
+ OPTS		+= -DSTATIC
+endif
 AFLAGS		:= -msse2 -mfpmath=sse
 RFLAGS		:= --input-format=rc -O coff
 LFLAGS		:=
@@ -197,7 +204,7 @@ ifeq ($(AUTODEP), y)
 else
 %.o:		%.c
 		@echo $<
-		@$(CC) $(CFLAGS) -c $<
+		$(CC) $(CFLAGS) -c $<
 
 %.o:		%.cpp
 		@echo $<
@@ -213,7 +220,11 @@ else
 endif
 
 
-all:		$(LIBS).dll $(LNAME).a $(PROGS).exe $(PROGS)_s.exe
+ifeq ($(STATIC), y)
+all:		$(LNAME).a $(PROGS)_s.exe
+else
+all:		$(LIBS).dll $(PROGS).exe
+endif
 
 
 $(LIBS).res:	win32/minivhd.rc
