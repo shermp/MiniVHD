@@ -3,11 +3,13 @@
  *
  *		This file is part of the MiniVHD Project.
  *
- * Version:	@(#)convert.c	1.0.1	2021/03/16
+ * Version:	@(#)convert.c	1.0.2	2021/04/16
  *
- * Author:	Sherman Perry, <shermperry@gmail.com>
+ * Authors:	Sherman Perry, <shermperry@gmail.com>
+ *		Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2019-2021 Sherman Perry.
+ *		Copyright 2021 Fred N. van Kempen.
  *
  *		MIT License
  *
@@ -40,7 +42,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
 
@@ -75,7 +77,7 @@ open_existing_raw_img(const char* utf8_raw_path, MVHDGeom* geom, int* err)
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, int* err)
 {
     MVHDGeom geom;
@@ -95,7 +97,7 @@ mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, 
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8_vhd_path, int* err)
 {
     MVHDGeom geom;
@@ -136,7 +138,7 @@ end:
 }
 
 
-FILE *
+MVHDAPI FILE *
 mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, int *err)
 {
     FILE *raw_img = mvhd_fopen(utf8_raw_path, "wb", err);

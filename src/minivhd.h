@@ -10,11 +10,13 @@
  *
  *		Definitions for the MiniVHD library.
  *
- * Version:	@(#)minivhd.h	1.0.2	2021/03/22
+ * Version:	@(#)minivhd.h	1.0.3	2021/04/16
  *
- * Author:	Sherman Perry, <shermperry@gmail.com>
+ * Authors:	Sherman Perry, <shermperry@gmail.com>
+ *		Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2019-2021 Sherman Perry.
+ *		Copyright 2021 Fred N. van Kempen.
  *
  *		MIT License
  *
@@ -106,36 +108,36 @@ extern int mvhd_errno;
 
 
 /* Shared-library madness. */
-#ifdef STATIC
-# define MVHD_API	/*nothing*/
-#else
-# if defined(_WIN32) && !defined(__GNUC__)
-#  ifdef BUILDING_DLL
-#   define MVHD_API	__declspec(dllexport)
-#  else
-#   define MVHD_API	//__declspec(dllimport)
-#  endif 
-# elif defined(__GNUC__)
-#  ifdef BUILDING_DLL
-#   define MVHD_API	__attribute__((visibility("default")))
-#  else
-#   define MVHD_API	/*nothing*/
-#  endif
+#if defined(_WIN32)
+# ifdef STATIC
+#  define MVHDAPI	/*nothing*/
 # else
-#  define MVHD_API	/*nothing*/
-# endif 
+#  ifdef BUILDING_LIBRARY
+#   define MVHDAPI	__declspec(dllexport)
+#  else
+#   define MVHDAPI	__declspec(dllimport)
+#  endif
+# endif
+#elif defined(__GNUC__)
+# ifdef BUILDING_LIBRARY
+#  define MVHDAPI	__attribute__((visibility("default")))
+# else
+#  define MVHDAPI	/*nothing*/
+# endif
+#else
+# define MVHDAPI	/*nothing*/
 #endif
 
 
 /**
  * \brief Return the library version as a string
  */
-MVHD_API const char *mvhd_version(void);
+MVHDAPI const char *mvhd_version(void);
 
 /**
  * \brief Return the library version as a number
  */
-MVHD_API uint32_t mvhd_version_id(void);
+MVHDAPI uint32_t mvhd_version_id(void);
 
 /**
  * \brief Output a string from a MiniVHD error number
@@ -144,7 +146,7 @@ MVHD_API uint32_t mvhd_version_id(void);
  * 
  * \return Error string
  */
-MVHD_API const char* mvhd_strerr(MVHDError err);
+MVHDAPI const char* mvhd_strerr(MVHDError err);
 
 /**
  * \brief A simple test to see if a given file is a VHD
@@ -154,7 +156,7 @@ MVHD_API const char* mvhd_strerr(MVHDError err);
  * \retval 1 if f is a VHD
  * \retval 0 if f is not a VHD
  */
-MVHD_API int mvhd_file_is_vhd(FILE* f);
+MVHDAPI int mvhd_file_is_vhd(FILE* f);
 
 /**
  * \brief Return the file type of the given file
@@ -163,7 +165,7 @@ MVHD_API int mvhd_file_is_vhd(FILE* f);
  * 
  * \retval one of the defined MVHDType values
  */
-MVHD_API MVHDType mvhd_get_type(MVHDMeta* vhdm);
+MVHDAPI MVHDType mvhd_get_type(MVHDMeta* vhdm);
 
 /**
  * \brief Open a VHD image for reading and/or writing
@@ -184,7 +186,7 @@ MVHD_API MVHDType mvhd_get_type(MVHDMeta* vhdm);
  * \return MVHDMeta pointer. If NULL, check err. err may also be set to MVHD_ERR_TIMESTAMP if
  *         opening a differencing VHD.
  */
-MVHD_API MVHDMeta* mvhd_open(const char* path, int readonly, int* err);
+MVHDAPI MVHDMeta* mvhd_open(const char* path, int readonly, int* err);
 
 /**
  * \brief Update the parent modified timestamp in the VHD file
@@ -202,7 +204,7 @@ MVHD_API MVHDMeta* mvhd_open(const char* path, int readonly, int* err);
  * 
  * \return non-zero on error, 0 on success
  */
-MVHD_API int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
+MVHDAPI int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
 
 /**
  * \brief Create a fixed VHD image
@@ -214,7 +216,7 @@ MVHD_API int mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err);
  * 
  * \retval NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHD_API MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback);
+MVHDAPI MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback);
 
 /**
  * \brief Create sparse (dynamic) VHD image.
@@ -225,7 +227,7 @@ MVHD_API MVHDMeta* mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, 
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHD_API MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
+MVHDAPI MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err);
 
 /**
  * \brief Create differencing VHD imagee.
@@ -236,7 +238,7 @@ MVHD_API MVHDMeta* mvhd_create_sparse(const char* path, MVHDGeom geom, int* err)
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHD_API MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
+MVHDAPI MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int* err);
 
 /**
  * \brief Create a VHD using the provided options
@@ -248,14 +250,14 @@ MVHD_API MVHDMeta* mvhd_create_diff(const char* path, const char* par_path, int*
  *
  * \retval NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHD_API MVHDMeta* mvhd_create_ex(MVHDCreationOptions options, int* err);
+MVHDAPI MVHDMeta* mvhd_create_ex(MVHDCreationOptions options, int* err);
 
 /**
  * \brief Safely close a VHD image
  * 
  * \param [in] vhdm MiniVHD data structure to close
  */
-MVHD_API void mvhd_close(MVHDMeta* vhdm);
+MVHDAPI void mvhd_close(MVHDMeta* vhdm);
 
 /**
  * \brief Calculate hard disk geometry from a provided size
@@ -275,7 +277,7 @@ MVHD_API void mvhd_close(MVHDMeta* vhdm);
  * 
  * \return MVHDGeom the calculated geometry. This can be used in the appropriate create functions.
  */
-MVHD_API MVHDGeom mvhd_calculate_geometry(uint64_t size);
+MVHDAPI MVHDGeom mvhd_calculate_geometry(uint64_t size);
 
 /**
  * \brief Get the CHS geometry from the image
@@ -284,7 +286,7 @@ MVHD_API MVHDGeom mvhd_calculate_geometry(uint64_t size);
  * 
  * \return The CHS geometry as stored in the image
  */
-MVHD_API MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
+MVHDAPI MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
 
 /**
  * \brief Get the 'current_size' value from the image
@@ -297,7 +299,7 @@ MVHD_API MVHDGeom mvhd_get_geometry(MVHDMeta* vhdm);
  * \return The 'current_size' value in bytes, as stored in the image.
  *         Note, this may not match the CHS geometry.
  */
-MVHD_API uint64_t mvhd_get_current_size(MVHDMeta* vhdm);
+MVHDAPI uint64_t mvhd_get_current_size(MVHDMeta* vhdm);
 
 /**
  * \brief Calculate CHS geometry size in bytes
@@ -306,7 +308,7 @@ MVHD_API uint64_t mvhd_get_current_size(MVHDMeta* vhdm);
  * 
  * \return the size in bytes
  */
-MVHD_API uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
+MVHDAPI uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
 
 /**
  * \brief Calculate CHS geometry size in sectors
@@ -315,7 +317,7 @@ MVHD_API uint64_t mvhd_calc_size_bytes(MVHDGeom *geom);
  * 
  * \return the size in sectors
  */
-MVHD_API uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
+MVHDAPI uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
 
 /**
  * \brief Convert a raw disk image to a fixed VHD image
@@ -326,7 +328,7 @@ MVHD_API uint32_t mvhd_calc_size_sectors(MVHDGeom *geom);
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHD_API MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
+MVHDAPI MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
 
 /**
  * \brief Convert a raw disk image to a sparse VHD image
@@ -337,7 +339,7 @@ MVHD_API MVHDMeta* mvhd_convert_to_vhd_fixed(const char* utf8_raw_path, const ch
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns pointer to a MVHDMeta struct
  */
-MVHD_API MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
+MVHDAPI MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const char* utf8_vhd_path, int* err);
 
 /**
  * \brief Convert a VHD image to a raw disk image
@@ -348,7 +350,7 @@ MVHD_API MVHDMeta* mvhd_convert_to_vhd_sparse(const char* utf8_raw_path, const c
  * 
  * \return NULL if an error occurrs. Check value of *err for actual error. Otherwise returns the raw disk image FILE pointer
  */
-MVHD_API FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, int *err);
+MVHDAPI FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_raw_path, int *err);
 
 /**
  * \brief Read sectors from VHD file
@@ -362,7 +364,7 @@ MVHD_API FILE* mvhd_convert_to_raw(const char* utf8_vhd_path, const char* utf8_r
  * 
  * \return the number of sectors that were not read, or zero
  */
-MVHD_API int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff);
+MVHDAPI int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff);
 
 /**
  * \brief Write sectors to VHD file
@@ -376,7 +378,7 @@ MVHD_API int mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors,
  * 
  * \return the number of sectors that were not written, or zero
  */
-MVHD_API int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff);
+MVHDAPI int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff);
 
 /**
  * \brief Write zeroed sectors to VHD file
@@ -391,7 +393,7 @@ MVHD_API int mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors
  * 
  * \return the number of sectors that were not written, or zero
  */
-MVHD_API int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors);
+MVHDAPI int mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors);
 
 #ifdef __cplusplus
 }

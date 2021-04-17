@@ -10,7 +10,7 @@
 #
 #		Makefile for Windows using Microsoft Visual Studio.
 #
-# Version:	@(#)Makefile.VC	1.0.1	2021/03/16
+# Version:	@(#)Makefile.VC	1.0.2	2021/04/16
 #
 # Author:	Fred N. van Kempen, <waltje@varcem.com>
 #
@@ -55,6 +55,9 @@ endif
 ifndef X64
  X64		:= n
 endif
+ifndef STATIC
+ STATIC		:= n
+endif
 
 
 # Name of the projects.
@@ -76,7 +79,6 @@ VPATH		:= win32
 #
 # Select the required build environment.
 #
-VCOPTS		:= -D_CRT_SECURE_NO_WARNINGS -D__MSC__
 ifeq ($(X64), y)
  ARCH		:= x64
  CPP		:= cl -nologo
@@ -101,25 +103,28 @@ DEPFILE		:= win32\.depends-msvc
 
 
 # Set up the correct toolchain flags.
-OPTS		:= $(VCOPTS) \
+OPTS		:= -D__MSC__ \
 		   -D_USE_MATH_DEFINES \
 		   -D_CRT_NONSTDC_NO_DEPRECATE \
 		   -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 		   -D_CRT_SECURE_NO_WARNINGS \
 		   -D_CRT_STDIO_ISO_WIDE_SPECIFIERS
+ifeq ($(STATIC), y)
+ OPTS		+= -DSTATIC
+endif
 AFLAGS		:= #/arch:SSE2
 RFLAGS		:= /n
 COPTS		:= -W3
 CXXOPTS		:= -EHsc
 DOPTS		:= 
 ifeq ($(X64), y)
-LOPTS		:= -MACHINE:$(ARCH)
-LOPTS_C		:= -SUBSYSTEM:CONSOLE
-LOPTS_W		:= -SUBSYSTEM:WINDOWS
+ LOPTS		:= -MACHINE:$(ARCH)
+ LOPTS_C	:= -SUBSYSTEM:CONSOLE
+ LOPTS_W	:= -SUBSYSTEM:WINDOWS
 else
-LOPTS		:= -MACHINE:$(ARCH)
-LOPTS_C		:= -SUBSYSTEM:CONSOLE,5.01
-LOPTS_W		:= -SUBSYSTEM:WINDOWS,5.01
+ LOPTS		:= -MACHINE:$(ARCH)
+ LOPTS_C	:= -SUBSYSTEM:CONSOLE,5.01
+ LOPTS_W	:= -SUBSYSTEM:WINDOWS,5.01
 endif
 OPTS		+= $(SYSINC)
 ifeq ($(OPTIM), y)
@@ -159,9 +164,6 @@ CXXFLAGS	:= $(OPTS) $(CXXOPTS) $(COPTS) $(COPTIM) $(DOPTS) $(AFLAGS) -I.
 LOBJ		:= cwalk.obj xml2_encoding.obj \
 		   convert.obj create.obj io.obj manage.obj \
 		   struct_rw.obj util.obj
-LOBJ_S		:= cwalk.sbj xml2_encoding.sbj \
-		   convert.sbj create.sbj io.sbj manage.sbj \
-		   struct_rw.sbj util.sbj
 
 
 # Build module rules.
@@ -177,9 +179,6 @@ else
 %.obj:		%.c
 		@$(CC) $(CFLAGS) -Fo$@ -c $<
 
-%.sbj:		%.c
-		@$(CC) $(CFLAGS) -DSTATIC -Fo$@ -c $<
-
 %.obj:		%.cpp
 		@$(CPP) $(CXXFLAGS) -Fo$@ -c $<
 
@@ -191,7 +190,11 @@ else
 endif
 
 
-all:		$(LIBS).dll $(LIBS)_s.lib $(PROGS).exe $(PROGS)_s.exe
+ifeq ($(STATIC), y)
+all:		$(LIBS)_s.lib $(PROGS)_s.exe
+else
+all:		$(LIBS).dll $(PROGS).exe
+endif
 
 $(LIBS).res:	win32\$(LIBS).rc
 		@echo Processing $<
@@ -202,17 +205,17 @@ $(LIBS).dll:	$(LOBJ) $(LIBS).res
 		@$(LINK) /DLL $(LFLAGS) $(LOPTS_W) -OUT:$(LIBS).dll \
 			$(LOBJ) $(LIBS).res $(SYSLIBS)
 
-$(LIBS)_s.lib:	$(LOBJ_S)
+$(LIBS)_s.lib:	$(LOBJ)
 		@echo Creating $@ ..
-		@$(AR) /OUT:$@ $(LOBJ_S)
+		@$(AR) /OUT:$@ $(LOBJ)
 
 $(PROGS).exe:	$(PROGS).obj
 		@echo Linking $@ ..
 		@$(LINK) $(LFLAGS) /OUT:$@ $(PROGS).obj $(SYSLIBS) minivhd.lib
 
-$(PROGS)_s.exe:	$(PROGS).sbj
+$(PROGS)_s.exe:	$(PROGS).obj
 		@echo Linking $@ ..
-		@$(LINK) $(LFLAGS) /OUT:$@ $(PROGS).sbj $(SYSLIBS) minivhd_s.lib
+		@$(LINK) $(LFLAGS) /OUT:$@ $(PROGS).obj $(SYSLIBS) minivhd_s.lib
 
 
 install:	all
@@ -233,7 +236,6 @@ endif
 clean:
 		@echo Cleaning objects..
 		@-del *.obj 2>NUL
-		@-del *.sbj 2>NUL
 		@-del *.res 2>NUL
 
 clobber:	clean

@@ -25,7 +25,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
 #include "xml2_encoding.h"

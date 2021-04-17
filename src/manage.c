@@ -5,11 +5,13 @@
  *
  *		VHD management functions (open, close, read write etc)
  *
- * Version:	@(#)manage.c	1.0.3	2021/03/22
+ * Version:	@(#)manage.c	1.0.4	2021/04/16
  *
- * Author:	Sherman Perry, <shermperry@gmail.com>
+ * Authors:	Sherman Perry, <shermperry@gmail.com>
+ *		Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2019-2021 Sherman Perry.
+ *		Copyright 2021 Fred N. van Kempen.
  *
  *		MIT License
  *
@@ -42,7 +44,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
 #include "version.h"
@@ -51,12 +53,12 @@
 
 
 struct MVHDPaths {
-    char dir_path[MVHD_MAX_PATH_BYTES];
-    char file_name[MVHD_MAX_PATH_BYTES];
-    char w2ku_path[MVHD_MAX_PATH_BYTES];
-    char w2ru_path[MVHD_MAX_PATH_BYTES];
-    char joined_path[MVHD_MAX_PATH_BYTES];
-    uint16_t tmp_src_path[MVHD_MAX_PATH_CHARS];
+    char	dir_path[MVHD_MAX_PATH_BYTES];
+    char	file_name[MVHD_MAX_PATH_BYTES];
+    char	w2ku_path[MVHD_MAX_PATH_BYTES];
+    char	w2ru_path[MVHD_MAX_PATH_BYTES];
+    char	joined_path[MVHD_MAX_PATH_BYTES];
+    uint16_t	tmp_src_path[MVHD_MAX_PATH_CHARS];
 };
 
 
@@ -275,7 +277,7 @@ mvhd_parent_path_exists(struct MVHDPaths* paths, uint32_t plat_code)
  * \return a pointer to the global string `tmp_open_path`, or NULL if a path could 
  * not be found, or some error occurred
  */
-static char*
+static char *
 get_diff_parent_path(MVHDMeta* vhdm, int* err)
 {
     int utf_outlen, utf_inlen, utf_ret;
@@ -410,7 +412,7 @@ assign_io_funcs(MVHDMeta* vhdm)
 /**
  * \brief Return the library version as a string
  */
-const char *
+MVHDAPI const char *
 mvhd_version(void)
 {
     return LIB_VERSION_4;
@@ -420,7 +422,7 @@ mvhd_version(void)
 /**
  * \brief Return the library version as a number
  */
-uint32_t
+MVHDAPI uint32_t
 mvhd_version_id(void)
 {
     return (LIB_VER_MAJOR << 24) | (LIB_VER_MINOR << 16) |
@@ -436,7 +438,7 @@ mvhd_version_id(void)
  * \retval 1 if f is a VHD
  * \retval 0 if f is not a VHD
  */
-int
+MVHDAPI int
 mvhd_file_is_vhd(FILE* f)
 {
     uint8_t con_str[8];
@@ -455,7 +457,7 @@ mvhd_file_is_vhd(FILE* f)
 }
 
 
-MVHDGeom
+MVHDAPI MVHDGeom
 mvhd_calculate_geometry(uint64_t size)
 {
     MVHDGeom chs;
@@ -498,7 +500,7 @@ mvhd_calculate_geometry(uint64_t size)
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_open(const char* path, int readonly, int* err)
 {
     MVHDError open_err;
@@ -624,7 +626,7 @@ end:
 }
 
 
-void
+MVHDAPI void
 mvhd_close(MVHDMeta* vhdm)
 {
     if (vhdm == NULL)
@@ -653,7 +655,7 @@ mvhd_close(MVHDMeta* vhdm)
 }
 
 
-int
+MVHDAPI int
 mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err)
 {
     uint8_t sparse_buff[1024];
@@ -688,21 +690,21 @@ mvhd_diff_update_par_timestamp(MVHDMeta* vhdm, int* err)
 }
 
 
-int
+MVHDAPI int
 mvhd_read_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* out_buff)
 {
     return vhdm->read_sectors(vhdm, offset, num_sectors, out_buff);
 }
 
 
-int
+MVHDAPI int
 mvhd_write_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors, void* in_buff)
 {
     return vhdm->write_sectors(vhdm, offset, num_sectors, in_buff);
 }
 
 
-int
+MVHDAPI int
 mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors)
 {
     int num_full = num_sectors / vhdm->format_buffer.sector_count;
@@ -720,7 +722,7 @@ mvhd_format_sectors(MVHDMeta* vhdm, uint32_t offset, int num_sectors)
 }
 
 
-MVHDType
+MVHDAPI MVHDType
 mvhd_get_type(MVHDMeta* vhdm)
 {
     return vhdm->footer.disk_type;

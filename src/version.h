@@ -5,7 +5,7 @@
  *
  *		Define library version and build info.
  *
- * Version:	@(#)version.h	1.0.2	2021/03/22
+ * Version:	@(#)version.h	1.034	2021/04/16
  *
  * Author:	Fred N. van Kempen, <waltje@varcem.com>
  *
@@ -44,7 +44,7 @@
 /* Version info. */
 #define LIB_VER_MAJOR	1
 #define LIB_VER_MINOR	0
-#define LIB_VER_REV	2
+#define LIB_VER_REV	3
 #define LIB_VER_PATCH	0
 
 

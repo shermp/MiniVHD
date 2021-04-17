@@ -5,7 +5,7 @@
  *
  *		Utility functions.
  *
- * Version:	@(#)util.c	1.0.3	2021/03/22
+ * Version:	@(#)util.c	1.0.4	2021/04/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -46,7 +46,7 @@
 #include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
 #include "xml2_encoding.h"
@@ -272,7 +272,7 @@ mvhd_calc_size_sectors(MVHDGeom *geom)
 }
 
 
-MVHDGeom
+MVHDAPI MVHDGeom
 mvhd_get_geometry(MVHDMeta* vhdm)
 {
     MVHDGeom geometry = {
@@ -285,7 +285,7 @@ mvhd_get_geometry(MVHDMeta* vhdm)
 }
 
 
-uint64_t
+MVHDAPI uint64_t
 mvhd_get_current_size(MVHDMeta* vhdm)
 {
     return vhdm->footer.curr_sz;
@@ -327,7 +327,7 @@ mvhd_gen_sparse_checksum(MVHDSparseHeader* header)
 }
 
 
-const char *
+MVHDAPI const char *
 mvhd_strerr(MVHDError err)
 {
     const char *s = "unknown error";

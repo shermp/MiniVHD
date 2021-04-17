@@ -3,12 +3,13 @@
  *
  *		This file is part of the MiniVHD Project.
  *
- * Version:	@(#)create.c	1.0.2	2021/03/16
+ * Version:	@(#)create.c	1.0.3	2021/04/16
  *
  * Authors:	Sherman Perry, <shermperry@gmail.com>
  *		Fred N. van Kempen, <waltje@varcem.com>
  *
  *		Copyright 2019-2021 Sherman Perry.
+ *		Copyright 2021 Fred N. van Kempen.
  *
  *		MIT License
  *
@@ -42,7 +43,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
 #include "cwalk.h"
@@ -210,7 +211,7 @@ end:
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_create_fixed(const char* path, MVHDGeom geom, int* err, mvhd_progress_callback progress_callback)
 {
     uint64_t size_in_bytes = mvhd_calc_size_bytes(&geom);
@@ -482,7 +483,7 @@ end:
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_create_sparse(const char* path, MVHDGeom geom, int* err)
 {
     uint64_t size_in_bytes = mvhd_calc_size_bytes(&geom);
@@ -491,14 +492,14 @@ mvhd_create_sparse(const char* path, MVHDGeom geom, int* err)
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_create_diff(const char* path, const char* par_path, int* err)
 {
     return create_sparse_diff(path, par_path, 0, NULL, MVHD_BLOCK_LARGE, err);
 }
 
 
-MVHDMeta *
+MVHDAPI MVHDMeta *
 mvhd_create_ex(MVHDCreationOptions options, int* err)
 {
     uint32_t geom_sector_size;   

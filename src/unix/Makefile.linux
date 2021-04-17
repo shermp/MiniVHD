@@ -10,12 +10,11 @@
 #
 #		Makefile for UNIX and Linux systems using GCC.
 #
-# Version:	@(#)Makefile.GCC	1.0.1	2021/03/16
+# Version:	@(#)Makefile.GCC	1.0.2	2021/04/16
 #
 # Author:	Fred N. van Kempen, <waltje@varcem.com>
 #
 #		Copyright 2021 Fred N. van Kempen.
-#		Copyright 2019-2021 Sherman Perry.
 #
 #		MIT License
 #
@@ -51,6 +50,9 @@ ifndef DEBUG
 endif
 ifndef X64
  X64		:= n
+endif
+ifndef STATIC
+ STATIC		:= n
 endif
 
 
@@ -106,6 +108,9 @@ DEPFILE		:= $(PLATDIR)/.depends-$(PLATNAME)
 
 # Set up the correct toolchain flags.
 OPTS		:= -DUNIX $(PLATDEFS)
+ifeq ($(STATIC), y)
+ OPTS		:= -DSTATIC
+endif
 AFLAGS		:= -msse2 -mfpmath=sse
 COPTS		:= -Wall
 CXXOPTS		:= -Wall
@@ -153,7 +158,7 @@ ifeq ($(AUTODEP), y)
 else
 %.o:		%.c
 		@echo $<
-		@$(CC) $(CFLAGS) -c $<
+		$(CC) $(CFLAGS) -c $<
 
 %.o:		%.cpp
 		@echo $<
@@ -169,7 +174,11 @@ else
 endif
 
 
-all:		$(LIBS).so $(LIBS).a $(PROGS) $(PROGS)_s
+ifeq ($(STATIC),y)
+all:		$(LIBS).a $(PROGS)_s
+else
+all:		$(LIBS).so $(PROGS)
+endif
 
 
 $(LIBS).so:	$(LOBJ)
@@ -179,21 +188,22 @@ ifneq ($(DEBUG), y)
 		@$(STRIP) --strip-unneeded $(LIBS).so
 endif
 
+
 $(LIBS).a:	$(LOBJ)
 		@echo Creating $@ ..
 		@$(AR) rv $@ $(LOBJ)
 		@$(RANLIB) $@
 
-$(PROGS):	$(PROGS).o
+$(PROGS):	tester.o
 		@echo Linking $@ ..
-		$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -lminivhd
+		$(CC) $(LFLAGS) -o $@ $< $(SYSLIBS) -lminivhd
 ifneq ($(DEBUG), y)
 		@$(STRIP) $@
 endif
 
-$(PROGS)_s:	$(PROGS).o
+$(PROGS)_s:	tester.o
 		@echo Linking $@ ..
-		$(CC) $(LFLAGS) -o $@ $(PROGS).o $(SYSLIBS) -static -lminivhd
+		$(CC) $(LFLAGS) -o $@ $< $(SYSLIBS) -static -lminivhd -shared
 ifneq ($(DEBUG), y)
 		@$(STRIP) $@
 endif

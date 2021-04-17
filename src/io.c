@@ -5,7 +5,7 @@
  *
  *		Sector reading and writing implementations.
  *
- * Version:	@(#)io.c	1.0.2	2021/03/16
+ * Version:	@(#)io.c	1.0.3	2021/04/16
  *
  * Author:	Sherman Perry, <shermperry@gmail.com>
  *
@@ -42,17 +42,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#define BUILDING_DLL
+#define BUILDING_LIBRARY
 #include "minivhd.h"
 #include "internal.h"
 
 
-/* The following bit array macros adapted from 
-   http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html */
-
-#define VHD_SETBIT(A,k)     ( A[(k/8)] |= (0x80 >> (k%8)) )
-#define VHD_CLEARBIT(A,k)   ( A[(k/8)] &= ~(0x80 >> (k%8)) )
-#define VHD_TESTBIT(A,k)    ( A[(k/8)] & (0x80 >> (k%8)) )
+/*
+ * The following bit array macros adapted from:
+ *
+ * http://www.mathcs.emory.edu/~cheung/Courses/255/Syllabus/1-C-intro/bit-array.html
+*/
+#define VHD_SETBIT(A,k)     ( A[(k>>3)] |= (0x80 >> (k&7)) )
+#define VHD_CLEARBIT(A,k)   ( A[(k>>3)] &= ~(0x80 >> (k&7)) )
+#define VHD_TESTBIT(A,k)    ( A[(k>>3)] & (0x80 >> (k&7)) )
 
 
 /**
